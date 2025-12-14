@@ -1,0 +1,83 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Settings {
+  id                    String   @id @default(cuid())
+  initialBankBalance    Decimal  @db.Decimal(10, 2)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+enum EventType {
+  EXPENSE
+  INCOMING
+}
+
+enum CertaintyLevel {
+  UNLIKELY
+  POSSIBLE
+  LIKELY
+  CERTAIN
+}
+
+model ProjectionEvent {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  value       Decimal         @db.Decimal(10, 2)
+  type        EventType
+  certainty   CertaintyLevel
+  payTo       String?         // for expenses
+  paidBy      String?         // for incoming
+  date        DateTime        @db.Date
+
+  // Recurrence tracking
+  isRecurring             Boolean   @default(false)
+  recurringEventId        String?   // Groups the base event with its recurrences
+  onTheSameDateEachMonth  Boolean   @default(false)
+  monthlyEventDay         Int?      // Day of month (1-31) for monthly recurring
+  untilTargetDate         DateTime? @db.Date
+
+  // Relationships
+  recurringDates EventRecurringDate[]
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([date])
+  @@index([recurringEventId])
+}
+
+model EventRecurringDate {
+  id                String          @id @default(cuid())
+  projectionEventId String
+  projectionEvent   ProjectionEvent @relation(fields: [projectionEventId], references: [id], onDelete: Cascade)
+  recurringEventId  String          // Links to the base recurring event
+  date              DateTime        @db.Date
+
+  createdAt         DateTime        @default(now())
+
+  @@index([projectionEventId])
+  @@index([recurringEventId])
+  @@index([date])
+}
+
+model DailyBalance {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date @unique
+  expectedBalance Decimal  @db.Decimal(10, 2)
+  actualBalance   Decimal? @db.Decimal(10, 2)  // User can set this
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([date])
+}
