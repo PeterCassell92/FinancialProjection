@@ -1,65 +1,226 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { format, addMonths, startOfMonth } from 'date-fns';
+
+interface Settings {
+  id: string;
+  initialBankBalance: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export default function Dashboard() {
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [monthOffset, setMonthOffset] = useState(0); // 0 for months 0-5, 6 for months 6-11
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      const data = await response.json();
+
+      if (data.success) {
+        setSettings(data.data);
+      } else {
+        setError(data.error || 'Failed to fetch settings');
+      }
+    } catch (err) {
+      setError('Failed to connect to API');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateBalance = async () => {
+    const newBalance = prompt('Enter new initial bank balance:', settings?.initialBankBalance.toString() || '0');
+
+    if (newBalance === null) return;
+
+    const balance = parseFloat(newBalance);
+    if (isNaN(balance)) {
+      alert('Please enter a valid number');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initialBankBalance: balance }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSettings(data.data);
+      } else {
+        alert(data.error || 'Failed to update balance');
+      }
+    } catch (err) {
+      alert('Failed to update balance');
+    }
+  };
+
+  // Generate links for the next 6 months based on offset
+  const currentMonth = startOfMonth(new Date());
+  const monthLinks = Array.from({ length: 6 }, (_, i) => {
+    const month = addMonths(currentMonth, monthOffset + i);
+    return {
+      date: month,
+      label: format(month, 'MMMM yyyy'),
+      path: `/projections/${format(month, 'yyyy-MM')}`,
+    };
+  });
+
+  const handleShowNextSix = () => {
+    setMonthOffset(6);
+  };
+
+  const handleShowFirstSix = () => {
+    setMonthOffset(0);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50" data-testid="dashboard-loading">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-gray-50" data-testid="dashboard">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900" data-testid="dashboard-title">
+            Financial Projections
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-2 text-gray-600">
+            Track your expected expenses and income over the next 6 months
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4" data-testid="dashboard-error">
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
+
+        {/* Settings Card */}
+        <div className="bg-white rounded-lg shadow mb-8 p-6" data-testid="settings-card">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Settings</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Initial Bank Balance</p>
+              <p className="text-2xl font-bold text-gray-900" data-testid="initial-balance">
+                ${settings?.initialBankBalance.toFixed(2) || '0.00'}
+              </p>
+            </div>
+            <button
+              onClick={handleUpdateBalance}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              data-testid="update-balance-button"
+            >
+              Update Balance
+            </button>
+          </div>
         </div>
-      </main>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Monthly Projections Card */}
+          <div className="bg-white rounded-lg shadow p-6" data-testid="monthly-projections-card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Monthly Projections</h2>
+              <div className="flex gap-2">
+                {monthOffset > 0 && (
+                  <button
+                    onClick={handleShowFirstSix}
+                    className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded"
+                    data-testid="show-first-six-button"
+                  >
+                    First 6
+                  </button>
+                )}
+                {monthOffset === 0 && (
+                  <button
+                    onClick={handleShowNextSix}
+                    className="text-sm px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded"
+                    data-testid="show-next-six-button"
+                  >
+                    Next 6 →
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-gray-600 mb-4">
+              {monthOffset === 0
+                ? 'Viewing months 1-6'
+                : 'Viewing months 7-12'}
+            </p>
+            <div className="space-y-2">
+              {monthLinks.map((month, index) => (
+                <Link
+                  key={month.path}
+                  href={month.path}
+                  className="block px-4 py-3 bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors"
+                  data-testid={`month-link__${index}`}
+                >
+                  <span className="text-gray-900 font-medium">{month.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Data Views Card */}
+          <div className="bg-white rounded-lg shadow p-6" data-testid="data-views-card">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Data Views</h2>
+            <p className="text-gray-600 mb-4">
+              Visualize your financial data with charts and analytics
+            </p>
+            <Link
+              href="/data-views"
+              className="inline-block px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              data-testid="data-views-link"
+            >
+              View Analytics
+            </Link>
+          </div>
+        </div>
+
+        {/* Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-blue-50 rounded-lg p-6" data-testid="info-card__projections">
+            <h3 className="text-lg font-semibold text-blue-900 mb-2">Projection Events</h3>
+            <p className="text-blue-700 text-sm">
+              Track expected expenses and incoming payments with different certainty levels
+            </p>
+          </div>
+
+          <div className="bg-green-50 rounded-lg p-6" data-testid="info-card__balance">
+            <h3 className="text-lg font-semibold text-green-900 mb-2">Daily Balances</h3>
+            <p className="text-green-700 text-sm">
+              Set actual balances and see calculated projections for each day
+            </p>
+          </div>
+
+          <div className="bg-purple-50 rounded-lg p-6" data-testid="info-card__recurring">
+            <h3 className="text-lg font-semibold text-purple-900 mb-2">Recurring Events</h3>
+            <p className="text-purple-700 text-sm">
+              Create recurring events that repeat monthly or on specific dates
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
