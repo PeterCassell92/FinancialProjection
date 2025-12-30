@@ -2,24 +2,56 @@ import {
   eachDayOfInterval,
   startOfDay,
   isSameDay,
-  addDays
+  isBefore,
+  isAfter
 } from 'date-fns';
 import { CertaintyLevel, EventType } from '@/lib/prisma';
 import { getProjectionEvents } from '@/lib/dal/projection-events';
-import { getDailyBalances, batchUpsertDailyBalances } from '@/lib/dal/daily-balance';
+import { getDailyBalances, batchUpsertDailyBalances, getMostRecentActualBalanceOnOrBefore } from '@/lib/dal/daily-balance';
 import { getOrCreateSettings } from '@/lib/dal/settings';
+
+/**
+ * Find the correct starting balance and date for calculations
+ *
+ * Algorithm:
+ * 1. Look for the most recent actual balance on or before the start date
+ * 2. If found and it's before the start date, use that as the starting point
+ * 3. If the most recent actual balance is on or after the start date, recursively look for the previous one
+ * 4. If no actual balance is found, fall back to the initial bank balance and its date from settings
+ */
+async function findStartingBalanceAndDate(
+  startDate: Date
+): Promise<{ balance: number; date: Date }> {
+  const start = startOfDay(startDate);
+
+  // Look for the most recent actual balance on or before the start date
+  const mostRecentActual = await getMostRecentActualBalanceOnOrBefore(start);
+
+  if (mostRecentActual && mostRecentActual.actualBalance !== null) {
+    // Found an actual balance - use it as our starting point
+    return {
+      balance: parseFloat(mostRecentActual.actualBalance.toString()),
+      date: startOfDay(mostRecentActual.date),
+    };
+  }
+
+  // No actual balance found - fall back to initial balance from settings
+  const settings = await getOrCreateSettings();
+  return {
+    balance: parseFloat(settings.initialBankBalance.toString()),
+    date: startOfDay(settings.initialBalanceDate),
+  };
+}
 
 /**
  * Calculate and store daily balances for a date range
  *
  * Algorithm:
- * 1. Start with initial bank balance from settings or previous day's actual/expected balance
- * 2. For each day in range:
- *    - Start with previous day's balance (actual if set, otherwise expected)
- *    - Add all INCOMING events (except UNLIKELY)
- *    - Subtract all EXPENSE events (except UNLIKELY)
- *    - Check if user set an actual balance (overrides calculated)
- *    - Store the result in DailyBalance table
+ * 1. Find the most recent actual balance (or initial balance if none exists)
+ * 2. If that balance is before the startDate, fetch all events from that date forward
+ * 3. Calculate day-by-day from the starting balance date through the entire range
+ * 4. When an actual balance is encountered, use it instead of the calculated value
+ * 5. Store all calculated balances for the requested range
  */
 export async function calculateDailyBalances(
   startDate: Date,
@@ -29,36 +61,16 @@ export async function calculateDailyBalances(
   const start = startOfDay(startDate);
   const end = startOfDay(endDate);
 
-  // Get initial balance from settings
-  const settings = await getOrCreateSettings();
-  let currentBalance = parseFloat(settings.initialBankBalance.toString());
+  // Find the correct starting balance and date
+  const { balance: startingBalance, date: startingDate } = await findStartingBalanceAndDate(start);
 
-  // Check if there's a previous actual balance set before our start date
-  const existingBalances = await getDailyBalances(
-    addDays(start, -30), // Look back 30 days
-    addDays(start, -1)
-  );
+  // Determine the actual calculation range
+  // We need to calculate from the startingDate (where we have a known balance)
+  // through to the endDate (the end of the requested range)
+  const calculationStart = isBefore(startingDate, start) ? startingDate : start;
 
-  // Find the most recent actual balance before start date
-  const previousActualBalance = existingBalances
-    .filter((b) => b.actualBalance !== null && b.actualBalance !== undefined)
-    .sort((a, b) => b.date.getTime() - a.date.getTime())[0];
-
-  if (previousActualBalance && previousActualBalance.actualBalance !== null && previousActualBalance.actualBalance !== undefined) {
-    currentBalance = parseFloat(previousActualBalance.actualBalance.toString());
-  } else {
-    // Use the expected balance of the day before if available
-    const previousDayBalance = existingBalances
-      .filter((b) => isSameDay(b.date, addDays(start, -1)))
-      [0];
-
-    if (previousDayBalance) {
-      currentBalance = parseFloat(previousDayBalance.expectedBalance.toString());
-    }
-  }
-
-  // Get all events in the date range
-  const events = await getProjectionEvents(start, end);
+  // Get all events from the calculation start to the end
+  const events = await getProjectionEvents(calculationStart, end);
 
   // Group events by date
   const eventsByDate = new Map<string, typeof events>();
@@ -71,7 +83,7 @@ export async function calculateDailyBalances(
   });
 
   // Get existing daily balances to check for actual balances
-  const existingDailyBalances = await getDailyBalances(start, end);
+  const existingDailyBalances = await getDailyBalances(calculationStart, end);
   const actualBalanceMap = new Map<string, number>();
   existingDailyBalances.forEach((balance) => {
     if (balance.actualBalance !== null && balance.actualBalance !== undefined) {
@@ -80,12 +92,30 @@ export async function calculateDailyBalances(
     }
   });
 
-  // Calculate balance for each day
-  const days = eachDayOfInterval({ start, end });
+  // Calculate balance for each day from calculationStart to end
+  const allDays = eachDayOfInterval({ start: calculationStart, end });
   const balancesToUpsert = [];
+  let currentBalance = startingBalance;
 
-  for (const day of days) {
+  for (const day of allDays) {
     const dateKey = startOfDay(day).toISOString();
+
+    // Check if there's an actual balance for this day that overrides calculation
+    const actualBalance = actualBalanceMap.get(dateKey);
+
+    // If this is the starting date and we have an actual balance there, skip event calculation
+    // because we're starting FROM this balance
+    if (isSameDay(day, startingDate) && actualBalance !== undefined) {
+      balancesToUpsert.push({
+        date: day,
+        expectedBalance: actualBalance, // Expected equals actual when we start from actual
+        actualBalance,
+      });
+      currentBalance = actualBalance;
+      continue;
+    }
+
+    // Get events for this day
     const dayEvents = eventsByDate.get(dateKey) || [];
 
     // Calculate day's impact from events (excluding UNLIKELY)
@@ -110,9 +140,6 @@ export async function calculateDailyBalances(
     // Calculate expected balance
     const expectedBalance = currentBalance + dayImpact;
 
-    // Check if user set an actual balance for this day
-    const actualBalance = actualBalanceMap.get(dateKey);
-
     balancesToUpsert.push({
       date: day,
       expectedBalance,
@@ -129,8 +156,16 @@ export async function calculateDailyBalances(
     }
   }
 
+  // Only upsert balances within the originally requested range
+  // (we may have calculated extra days if startingDate was before start)
+  const balancesInRequestedRange = balancesToUpsert.filter((b) => {
+    const balanceDate = startOfDay(b.date);
+    return (isSameDay(balanceDate, start) || isAfter(balanceDate, start)) &&
+           (isSameDay(balanceDate, end) || isBefore(balanceDate, end));
+  });
+
   // Batch upsert all daily balances
-  await batchUpsertDailyBalances(balancesToUpsert);
+  await batchUpsertDailyBalances(balancesInRequestedRange);
 }
 
 /**

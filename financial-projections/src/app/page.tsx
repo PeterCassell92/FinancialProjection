@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format, addMonths, startOfMonth } from 'date-fns';
+import UpdateInitialBalanceModal from '@/components/UpdateInitialBalanceModal';
 
 interface Settings {
   id: string;
   initialBankBalance: number;
+  initialBalanceDate: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,6 +18,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [monthOffset, setMonthOffset] = useState(0); // 0 for months 0-5, 6 for months 6-11
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -38,22 +41,15 @@ export default function Dashboard() {
     }
   };
 
-  const handleUpdateBalance = async () => {
-    const newBalance = prompt('Enter new initial bank balance:', settings?.initialBankBalance.toString() || '0');
-
-    if (newBalance === null) return;
-
-    const balance = parseFloat(newBalance);
-    if (isNaN(balance)) {
-      alert('Please enter a valid number');
-      return;
-    }
-
+  const handleUpdateBalance = async (balance: number, date: string) => {
     try {
       const response = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initialBankBalance: balance }),
+        body: JSON.stringify({
+          initialBankBalance: balance,
+          initialBalanceDate: date,
+        }),
       });
 
       const data = await response.json();
@@ -61,10 +57,10 @@ export default function Dashboard() {
       if (data.success) {
         setSettings(data.data);
       } else {
-        alert(data.error || 'Failed to update balance');
+        throw new Error(data.error || 'Failed to update balance');
       }
     } catch (err) {
-      alert('Failed to update balance');
+      throw err; // Re-throw to be handled by modal
     }
   };
 
@@ -126,7 +122,7 @@ export default function Dashboard() {
               </p>
             </div>
             <button
-              onClick={handleUpdateBalance}
+              onClick={() => setIsModalOpen(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               data-testid="update-balance-button"
             >
@@ -221,6 +217,17 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Update Initial Balance Modal */}
+      {settings && (
+        <UpdateInitialBalanceModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          currentBalance={settings.initialBankBalance}
+          currentDate={settings.initialBalanceDate ? format(new Date(settings.initialBalanceDate), 'yyyy-MM-dd') : undefined}
+          onUpdate={handleUpdateBalance}
+        />
+      )}
     </div>
   );
 }

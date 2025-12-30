@@ -18,6 +18,7 @@ export async function GET() {
       data: {
         id: settings.id,
         initialBankBalance: parseFloat(settings.initialBankBalance.toString()),
+        initialBalanceDate: settings.initialBalanceDate,
         createdAt: settings.createdAt,
         updatedAt: settings.updatedAt,
       },
@@ -50,10 +51,24 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(response, { status: 400 });
     }
 
+    // Parse optional date
+    let balanceDate: Date | undefined;
+    if (body.initialBalanceDate) {
+      balanceDate = new Date(body.initialBalanceDate);
+      if (isNaN(balanceDate.getTime())) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'initialBalanceDate must be a valid date',
+        };
+        return NextResponse.json(response, { status: 400 });
+      }
+    }
+
     const currentSettings = await getOrCreateSettings();
     const updatedSettings = await updateInitialBankBalance(
       currentSettings.id,
-      body.initialBankBalance
+      body.initialBankBalance,
+      balanceDate
     );
 
     const response: ApiResponse = {
@@ -63,6 +78,7 @@ export async function PUT(request: NextRequest) {
         initialBankBalance: parseFloat(
           updatedSettings.initialBankBalance.toString()
         ),
+        initialBalanceDate: updatedSettings.initialBalanceDate,
         createdAt: updatedSettings.createdAt,
         updatedAt: updatedSettings.updatedAt,
       },

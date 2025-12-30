@@ -13,6 +13,7 @@ datasource db {
 model Settings {
   id                    String   @id @default(cuid())
   initialBankBalance    Decimal  @db.Decimal(10, 2)
+  initialBalanceDate    DateTime @db.Date  // The date when initial balance is set (typically today on first launch)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }

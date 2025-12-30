@@ -12,6 +12,7 @@ export interface ApiResponse<T = any> {
 export interface SettingsData {
   id: string;
   initialBankBalance: number;
+  initialBalanceDate: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -101,4 +102,5 @@ export interface CalculateBalancesRequest {
 
 export interface UpdateSettingsRequest {
   initialBankBalance: number;
+  initialBalanceDate?: string; // ISO date string, optional
 }

@@ -168,6 +168,25 @@ export async function getMostRecentActualBalance(beforeDate: Date) {
 }
 
 /**
+ * Get the most recent actual balance on or before a given date
+ */
+export async function getMostRecentActualBalanceOnOrBefore(onOrBeforeDate: Date) {
+  return await prisma.dailyBalance.findFirst({
+    where: {
+      date: {
+        lte: onOrBeforeDate,
+      },
+      actualBalance: {
+        not: null,
+      },
+    },
+    orderBy: {
+      date: 'desc',
+    },
+  });
+}
+
+/**
  * Batch upsert daily balances
  */
 export async function batchUpsertDailyBalances(
