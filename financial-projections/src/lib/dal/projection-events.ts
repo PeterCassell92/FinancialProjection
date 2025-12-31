@@ -92,6 +92,7 @@ export async function getRecurringEventGroup(recurringEventId: string) {
   });
 }
 
+
 /**
  * Create a new projection event
  */

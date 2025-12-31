@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format, addMonths, startOfMonth } from 'date-fns';
 import UpdateInitialBalanceModal from '@/components/UpdateInitialBalanceModal';
+import { SettingsResponseSchema } from '@/lib/schemas/api-responses';
 
 interface Settings {
   id: string;
-  initialBankBalance: number;
-  initialBalanceDate: string;
+  initialBankBalance?: number | null;
+  initialBalanceDate?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [monthOffset, setMonthOffset] = useState(0); // 0 for months 0-5, 6 for months 6-11
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isWelcomeMode, setIsWelcomeMode] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -27,10 +29,29 @@ export default function Dashboard() {
   const fetchSettings = async () => {
     try {
       const response = await fetch('/api/settings');
-      const data = await response.json();
+      const rawData = await response.json();
 
-      if (data.success) {
+      // Validate response with Zod
+      const validationResult = SettingsResponseSchema.safeParse(rawData);
+
+      if (!validationResult.success) {
+        console.error('Invalid API response:', validationResult.error);
+        setError('Received invalid data from server');
+        return;
+      }
+
+      const data = validationResult.data;
+
+      if (data.success && data.data) {
         setSettings(data.data);
+
+        // Check if this is a first-time user (initial balance not set)
+        // initialBankBalance will be null or undefined for first-time users
+        const isFirstTime = data.data.initialBankBalance == null;
+        if (isFirstTime) {
+          setIsWelcomeMode(true);
+          setIsModalOpen(true);
+        }
       } else {
         setError(data.error || 'Failed to fetch settings');
       }
@@ -118,7 +139,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-600">Initial Bank Balance</p>
               <p className="text-2xl font-bold text-gray-900" data-testid="initial-balance">
-                ${settings?.initialBankBalance.toFixed(2) || '0.00'}
+                ${settings?.initialBankBalance != null ? settings.initialBankBalance.toFixed(2) : 'Not Set'}
               </p>
             </div>
             <button
@@ -222,10 +243,16 @@ export default function Dashboard() {
       {settings && (
         <UpdateInitialBalanceModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          currentBalance={settings.initialBankBalance}
+          onClose={() => {
+            // In welcome mode, don't allow closing without setting balance
+            if (!isWelcomeMode) {
+              setIsModalOpen(false);
+            }
+          }}
+          currentBalance={settings.initialBankBalance ?? 0}
           currentDate={settings.initialBalanceDate ? format(new Date(settings.initialBalanceDate), 'yyyy-MM-dd') : undefined}
           onUpdate={handleUpdateBalance}
+          welcomeMode={isWelcomeMode}
         />
       )}
     </div>

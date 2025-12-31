@@ -9,6 +9,7 @@ interface UpdateInitialBalanceModalProps {
   currentBalance: number;
   currentDate?: string;
   onUpdate: (balance: number, date: string) => Promise<void>;
+  welcomeMode?: boolean;
 }
 
 export default function UpdateInitialBalanceModal({
@@ -17,6 +18,7 @@ export default function UpdateInitialBalanceModal({
   currentBalance,
   currentDate,
   onUpdate,
+  welcomeMode = false,
 }: UpdateInitialBalanceModalProps) {
   const [balance, setBalance] = useState(currentBalance.toString());
   const [date, setDate] = useState(
@@ -71,16 +73,28 @@ export default function UpdateInitialBalanceModal({
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       data-testid="update-initial-balance-modal"
-      onClick={onClose}
+      onClick={welcomeMode ? undefined : onClose}
     >
       <div
         className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
         data-testid="update-initial-balance-modal-content"
       >
-        <h2 className="text-2xl font-bold text-gray-900 mb-4" data-testid="modal-title">
-          Update Initial Bank Balance
-        </h2>
+        {welcomeMode ? (
+          <>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2" data-testid="modal-title">
+              Welcome to Financial Projections!
+            </h2>
+            <p className="text-gray-600 mb-6" data-testid="welcome-message">
+              To get started, please enter your current bank balance and the date it was accurate.
+              This will serve as the starting point for all your financial projections going forward.
+            </p>
+          </>
+        ) : (
+          <h2 className="text-2xl font-bold text-gray-900 mb-4" data-testid="modal-title">
+            Update Initial Bank Balance
+          </h2>
+        )}
 
         <form onSubmit={handleSubmit}>
           {/* Balance Input */}
@@ -140,22 +154,28 @@ export default function UpdateInitialBalanceModal({
 
           {/* Action Buttons */}
           <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              data-testid="cancel-button"
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
+            {!welcomeMode && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                data-testid="cancel-button"
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300"
               data-testid="submit-button"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Updating...' : 'Update Balance'}
+              {isSubmitting
+                ? 'Saving...'
+                : welcomeMode
+                  ? 'Get Started'
+                  : 'Update Balance'}
             </button>
           </div>
         </form>

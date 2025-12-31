@@ -1,23 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getOrCreateSettings,
+  getSettings,
   updateInitialBankBalance,
+  createSettings,
 } from '@/lib/dal/settings';
+import { setActualBalance } from '@/lib/dal/daily-balance';
 import { ApiResponse, UpdateSettingsRequest } from '@/types';
+import { startOfDay } from 'date-fns';
 
 /**
  * GET /api/settings
- * Get current settings
+ * Get current settings (or create empty settings for first-time users)
  */
 export async function GET() {
   try {
-    const settings = await getOrCreateSettings();
+    let settings = await getSettings();
+
+    // If no settings exist, create a record with null balance (first-time user)
+    if (!settings) {
+      settings = await createSettings(0); // This creates with today's date as initialBalanceDate
+    }
 
     const response: ApiResponse = {
       success: true,
       data: {
         id: settings.id,
-        initialBankBalance: parseFloat(settings.initialBankBalance.toString()),
+        // Return null if balance is 0 (indicating not set by user)
+        initialBankBalance: settings.initialBankBalance.toString() === '0' ? null : parseFloat(settings.initialBankBalance.toString()),
         initialBalanceDate: settings.initialBalanceDate,
         createdAt: settings.createdAt,
         updatedAt: settings.updatedAt,
@@ -37,7 +47,7 @@ export async function GET() {
 
 /**
  * PUT /api/settings
- * Update settings
+ * Update settings and create/update the initial balance projection event
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -64,12 +74,20 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Default to today if no date provided
+    const effectiveDate = balanceDate || startOfDay(new Date());
+
+    // Update settings
     const currentSettings = await getOrCreateSettings();
     const updatedSettings = await updateInitialBankBalance(
       currentSettings.id,
       body.initialBankBalance,
-      balanceDate
+      effectiveDate
     );
+
+    // Set the actual balance for the initial balance date
+    // This creates or updates the daily balance entry with the actual balance
+    await setActualBalance(effectiveDate, body.initialBankBalance);
 
     const response: ApiResponse = {
       success: true,

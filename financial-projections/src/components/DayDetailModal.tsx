@@ -216,7 +216,7 @@ export default function DayDetailModal({
               </div>
             </div>
 
-            {balance?.actualBalance !== null && !settingActualBalance && (
+            {balance?.actualBalance != null && !settingActualBalance && (
               <button
                 onClick={handleClearActualBalance}
                 className="mt-2 text-sm text-red-600 hover:text-red-800"
