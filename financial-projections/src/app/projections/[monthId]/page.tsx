@@ -217,7 +217,8 @@ export default function MonthlyProjection() {
           <div className="grid grid-cols-7">
             {calendarDays.map((dayData, index) => {
               const hasEvents = dayData.events.length > 0;
-              const hasActualBalance = dayData.balance?.actualBalance !== null;
+              const hasActualBalance = dayData.balance?.actualBalance != null;
+              const actualBalance = dayData.balance?.actualBalance || 0;
               const expectedBalance = dayData.balance?.expectedBalance || 0;
 
               return (
@@ -236,14 +237,10 @@ export default function MonthlyProjection() {
                       className={`text-sm font-medium ${
                         dayData.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
                       }`}
+                      data-testid={`day-number__${format(dayData.date, 'd')}`}
                     >
                       {format(dayData.date, 'd')}
                     </span>
-                    {hasActualBalance && (
-                      <span className="text-xs bg-green-100 text-green-800 px-1 rounded">
-                        A
-                      </span>
-                    )}
                   </div>
 
                   {dayData.isCurrentMonth && (
@@ -251,19 +248,32 @@ export default function MonthlyProjection() {
                       {/* Events indicator */}
                       {hasEvents && (
                         <div className="mb-1">
-                          <div className="text-xs text-gray-600">
+                          <div className="text-xs text-gray-600" data-testid={`events-count__${format(dayData.date, 'd')}`}>
                             {dayData.events.length} event{dayData.events.length !== 1 ? 's' : ''}
                           </div>
                         </div>
                       )}
 
-                      {/* Balance */}
-                      {dayData.balance && (
+                      {/* Actual Balance - Orange pill */}
+                      {hasActualBalance && (
+                        <div className="mb-1">
+                          <span
+                            className="inline-block bg-orange-500 text-black font-bold text-xs px-2 py-1 rounded-full"
+                            data-testid={`actual-balance__${format(dayData.date, 'd')}`}
+                          >
+                            ${actualBalance.toFixed(0)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Expected Balance */}
+                      {dayData.balance && !hasActualBalance && (
                         <div className="text-xs">
                           <span
                             className={`font-semibold ${
                               expectedBalance >= 0 ? 'text-green-700' : 'text-red-700'
                             }`}
+                            data-testid={`expected-balance__${format(dayData.date, 'd')}`}
                           >
                             ${expectedBalance.toFixed(0)}
                           </span>
