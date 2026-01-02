@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import type { EventType, CertaintyLevel } from '@prisma/client';
+import type { EventType, CertaintyLevel, RecurrenceFrequency } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -26,4 +26,4 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 // Re-export Prisma enums for convenience
-export { EventType, CertaintyLevel } from '@prisma/client';
+export { EventType, CertaintyLevel, RecurrenceFrequency } from '@prisma/client';

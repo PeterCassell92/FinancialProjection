@@ -28,11 +28,8 @@ export interface ProjectionEventData {
   payTo?: string;
   paidBy?: string;
   date: Date;
-  isRecurring: boolean;
-  recurringEventId?: string;
-  onTheSameDateEachMonth: boolean;
-  monthlyEventDay?: number;
-  untilTargetDate?: Date;
+  decisionPath?: string;
+  recurringRuleId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -70,10 +67,7 @@ export interface CreateProjectionEventRequest {
   payTo?: string;
   paidBy?: string;
   date: string; // ISO date string
-  isRecurring?: boolean;
-  onTheSameDateEachMonth?: boolean;
-  monthlyEventDay?: number;
-  untilTargetDate?: string; // ISO date string
+  decisionPath?: string;
 }
 
 export interface UpdateProjectionEventRequest {
@@ -85,9 +79,7 @@ export interface UpdateProjectionEventRequest {
   payTo?: string;
   paidBy?: string;
   date?: string;
-  onTheSameDateEachMonth?: boolean;
-  monthlyEventDay?: number;
-  untilTargetDate?: string;
+  decisionPath?: string;
 }
 
 export interface SetActualBalanceRequest {

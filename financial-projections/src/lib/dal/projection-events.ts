@@ -1,34 +1,16 @@
 import { prisma, EventType, CertaintyLevel } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
-export interface CreateProjectionEventInput {
-  name: string;
-  description?: string;
-  value: number;
-  type: EventType;
-  certainty: CertaintyLevel;
-  payTo?: string;
-  paidBy?: string;
-  date: Date;
-  isRecurring?: boolean;
-  recurringEventId?: string;
-  onTheSameDateEachMonth?: boolean;
-  monthlyEventDay?: number;
-  untilTargetDate?: Date;
-}
+// Use Prisma's generated types with custom handling for relation fields
+// We use the unchecked input which allows setting foreign keys directly
+export type CreateProjectionEventInput = Omit<
+  Prisma.ProjectionEventUncheckedCreateInput,
+  'id' | 'createdAt' | 'updatedAt'
+>;
 
-export interface UpdateProjectionEventInput {
-  name?: string;
-  description?: string;
-  value?: number;
-  type?: EventType;
-  certainty?: CertaintyLevel;
-  payTo?: string;
-  paidBy?: string;
-  date?: Date;
-  onTheSameDateEachMonth?: boolean;
-  monthlyEventDay?: number;
-  untilTargetDate?: Date;
-}
+export type UpdateProjectionEventInput = Partial<
+  Omit<Prisma.ProjectionEventUncheckedUpdateInput, 'id' | 'createdAt' | 'updatedAt'>
+>;
 
 /**
  * Get all projection events within a date range
@@ -40,9 +22,6 @@ export async function getProjectionEvents(startDate: Date, endDate: Date) {
         gte: startDate,
         lte: endDate,
       },
-    },
-    include: {
-      recurringDates: true,
     },
     orderBy: {
       date: 'asc',
@@ -56,9 +35,6 @@ export async function getProjectionEvents(startDate: Date, endDate: Date) {
 export async function getProjectionEventById(id: string) {
   return await prisma.projectionEvent.findUnique({
     where: { id },
-    include: {
-      recurringDates: true,
-    },
   });
 }
 
@@ -68,26 +44,8 @@ export async function getProjectionEventById(id: string) {
 export async function getProjectionEventsByDate(date: Date) {
   return await prisma.projectionEvent.findMany({
     where: { date },
-    include: {
-      recurringDates: true,
-    },
     orderBy: {
       createdAt: 'asc',
-    },
-  });
-}
-
-/**
- * Get all recurring events by recurringEventId
- */
-export async function getRecurringEventGroup(recurringEventId: string) {
-  return await prisma.projectionEvent.findMany({
-    where: { recurringEventId },
-    include: {
-      recurringDates: true,
-    },
-    orderBy: {
-      date: 'asc',
     },
   });
 }
@@ -107,11 +65,8 @@ export async function createProjectionEvent(input: CreateProjectionEventInput) {
       payTo: input.payTo,
       paidBy: input.paidBy,
       date: input.date,
-      isRecurring: input.isRecurring ?? false,
-      recurringEventId: input.recurringEventId,
-      onTheSameDateEachMonth: input.onTheSameDateEachMonth ?? false,
-      monthlyEventDay: input.monthlyEventDay,
-      untilTargetDate: input.untilTargetDate,
+      decisionPath: input.decisionPath,
+      recurringRuleId: input.recurringRuleId,
     },
   });
 }
@@ -144,14 +99,6 @@ export async function deleteProjectionEvent(id: string) {
   });
 }
 
-/**
- * Delete all events in a recurring group
- */
-export async function deleteRecurringEventGroup(recurringEventId: string) {
-  return await prisma.projectionEvent.deleteMany({
-    where: { recurringEventId },
-  });
-}
 
 /**
  * Get events grouped by type for a date range (useful for charts)

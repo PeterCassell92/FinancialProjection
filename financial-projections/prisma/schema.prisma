@@ -30,6 +30,41 @@ enum CertaintyLevel {
   CERTAIN
 }
 
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ANNUAL
+}
+
+model RecurringProjectionEventRule {
+  id          String                @id @default(cuid())
+  name        String
+  description String?
+  value       Decimal               @db.Decimal(10, 2)
+  type        EventType
+  certainty   CertaintyLevel
+  payTo       String?               // for expenses
+  paidBy      String?               // for incoming
+
+  // Decision path for scenario modeling
+  decisionPath String?              // e.g., "take-new-job", "stay-current-role"
+
+  // Recurrence definition
+  startDate   DateTime              @db.Date
+  endDate     DateTime              @db.Date  // Required to prevent infinite event generation
+  frequency   RecurrenceFrequency   @default(MONTHLY)
+
+  // Generated events
+  projectionEvents ProjectionEvent[]
+
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([decisionPath])
+  @@index([startDate])
+}
+
 model ProjectionEvent {
   id          String          @id @default(cuid())
   name        String
@@ -41,35 +76,19 @@ model ProjectionEvent {
   paidBy      String?         // for incoming
   date        DateTime        @db.Date
 
-  // Recurrence tracking
-  isRecurring             Boolean   @default(false)
-  recurringEventId        String?   // Groups the base event with its recurrences
-  onTheSameDateEachMonth  Boolean   @default(false)
-  monthlyEventDay         Int?      // Day of month (1-31) for monthly recurring
-  untilTargetDate         DateTime? @db.Date
+  // Decision path for scenario modeling
+  decisionPath String?
 
-  // Relationships
-  recurringDates EventRecurringDate[]
+  // Link to recurring rule (if generated from one)
+  recurringRuleId String?
+  recurringRule   RecurringProjectionEventRule? @relation(fields: [recurringRuleId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   @@index([date])
-  @@index([recurringEventId])
-}
-
-model EventRecurringDate {
-  id                String          @id @default(cuid())
-  projectionEventId String
-  projectionEvent   ProjectionEvent @relation(fields: [projectionEventId], references: [id], onDelete: Cascade)
-  recurringEventId  String          // Links to the base recurring event
-  date              DateTime        @db.Date
-
-  createdAt         DateTime        @default(now())
-
-  @@index([projectionEventId])
-  @@index([recurringEventId])
-  @@index([date])
+  @@index([decisionPath])
+  @@index([recurringRuleId])
 }
 
 model DailyBalance {

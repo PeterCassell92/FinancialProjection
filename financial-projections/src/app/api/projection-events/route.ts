@@ -5,7 +5,6 @@ import {
   getProjectionEventsByDate,
 } from '@/lib/dal/projection-events';
 import { ApiResponse, CreateProjectionEventRequest } from '@/types';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * GET /api/projection-events
@@ -36,11 +35,8 @@ export async function GET(request: NextRequest) {
           payTo: event.payTo,
           paidBy: event.paidBy,
           date: event.date,
-          isRecurring: event.isRecurring,
-          recurringEventId: event.recurringEventId,
-          onTheSameDateEachMonth: event.onTheSameDateEachMonth,
-          monthlyEventDay: event.monthlyEventDay,
-          untilTargetDate: event.untilTargetDate,
+          decisionPath: event.decisionPath,
+          recurringRuleId: event.recurringRuleId,
           createdAt: event.createdAt,
           updatedAt: event.updatedAt,
         })),
@@ -74,11 +70,8 @@ export async function GET(request: NextRequest) {
         payTo: event.payTo,
         paidBy: event.paidBy,
         date: event.date,
-        isRecurring: event.isRecurring,
-        recurringEventId: event.recurringEventId,
-        onTheSameDateEachMonth: event.onTheSameDateEachMonth,
-        monthlyEventDay: event.monthlyEventDay,
-        untilTargetDate: event.untilTargetDate,
+        decisionPath: event.decisionPath,
+        recurringRuleId: event.recurringRuleId,
         createdAt: event.createdAt,
         updatedAt: event.updatedAt,
       })),
@@ -112,9 +105,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Generate recurringEventId if this is a recurring event
-    const recurringEventId = body.isRecurring ? uuidv4() : undefined;
-
     const event = await createProjectionEvent({
       name: body.name,
       description: body.description,
@@ -124,13 +114,7 @@ export async function POST(request: NextRequest) {
       payTo: body.payTo,
       paidBy: body.paidBy,
       date: new Date(body.date),
-      isRecurring: body.isRecurring,
-      recurringEventId,
-      onTheSameDateEachMonth: body.onTheSameDateEachMonth,
-      monthlyEventDay: body.monthlyEventDay,
-      untilTargetDate: body.untilTargetDate
-        ? new Date(body.untilTargetDate)
-        : undefined,
+      decisionPath: body.decisionPath,
     });
 
     // Recalculate balances from this day forward (6 months)
@@ -153,11 +137,8 @@ export async function POST(request: NextRequest) {
         payTo: event.payTo,
         paidBy: event.paidBy,
         date: event.date,
-        isRecurring: event.isRecurring,
-        recurringEventId: event.recurringEventId,
-        onTheSameDateEachMonth: event.onTheSameDateEachMonth,
-        monthlyEventDay: event.monthlyEventDay,
-        untilTargetDate: event.untilTargetDate,
+        decisionPath: event.decisionPath,
+        recurringRuleId: event.recurringRuleId,
         createdAt: event.createdAt,
         updatedAt: event.updatedAt,
       },

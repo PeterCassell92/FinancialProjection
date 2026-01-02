@@ -3,7 +3,6 @@ import {
   getProjectionEventById,
   updateProjectionEvent,
   deleteProjectionEvent,
-  deleteRecurringEventGroup,
 } from '@/lib/dal/projection-events';
 import { ApiResponse, UpdateProjectionEventRequest } from '@/types';
 
@@ -39,11 +38,8 @@ export async function GET(
         payTo: event.payTo,
         paidBy: event.paidBy,
         date: event.date,
-        isRecurring: event.isRecurring,
-        recurringEventId: event.recurringEventId,
-        onTheSameDateEachMonth: event.onTheSameDateEachMonth,
-        monthlyEventDay: event.monthlyEventDay,
-        untilTargetDate: event.untilTargetDate,
+        decisionPath: event.decisionPath,
+        recurringRuleId: event.recurringRuleId,
         createdAt: event.createdAt,
         updatedAt: event.updatedAt,
       },
@@ -82,12 +78,7 @@ export async function PUT(
     if (body.payTo !== undefined) updateData.payTo = body.payTo;
     if (body.paidBy !== undefined) updateData.paidBy = body.paidBy;
     if (body.date !== undefined) updateData.date = new Date(body.date);
-    if (body.onTheSameDateEachMonth !== undefined)
-      updateData.onTheSameDateEachMonth = body.onTheSameDateEachMonth;
-    if (body.monthlyEventDay !== undefined)
-      updateData.monthlyEventDay = body.monthlyEventDay;
-    if (body.untilTargetDate !== undefined)
-      updateData.untilTargetDate = new Date(body.untilTargetDate);
+    if (body.decisionPath !== undefined) updateData.decisionPath = body.decisionPath;
 
     const event = await updateProjectionEvent(id, updateData);
 
@@ -111,11 +102,8 @@ export async function PUT(
         payTo: event.payTo,
         paidBy: event.paidBy,
         date: event.date,
-        isRecurring: event.isRecurring,
-        recurringEventId: event.recurringEventId,
-        onTheSameDateEachMonth: event.onTheSameDateEachMonth,
-        monthlyEventDay: event.monthlyEventDay,
-        untilTargetDate: event.untilTargetDate,
+        decisionPath: event.decisionPath,
+        recurringRuleId: event.recurringRuleId,
         createdAt: event.createdAt,
         updatedAt: event.updatedAt,
       },
@@ -136,7 +124,7 @@ export async function PUT(
 /**
  * DELETE /api/projection-events/[id]
  * Delete a projection event
- * Query param: deleteGroup=true to delete entire recurring group
+ * Note: To delete all events from a recurring rule, delete the rule itself via /api/recurring-event-rules
  */
 export async function DELETE(
   request: NextRequest,
@@ -144,8 +132,6 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const searchParams = request.nextUrl.searchParams;
-    const deleteGroup = searchParams.get('deleteGroup') === 'true';
 
     // Get the event first to capture its date for recalculation
     const eventToDelete = await getProjectionEventById(id);
@@ -160,33 +146,7 @@ export async function DELETE(
 
     const eventDate = eventToDelete.date;
 
-    if (deleteGroup) {
-      if (!eventToDelete.recurringEventId) {
-        const response: ApiResponse = {
-          success: false,
-          error: 'Event is not part of a recurring group',
-        };
-        return NextResponse.json(response, { status: 400 });
-      }
-
-      await deleteRecurringEventGroup(eventToDelete.recurringEventId);
-
-      // Recalculate balances from the event date forward (6 months)
-      const { addMonths } = await import('date-fns');
-      const { recalculateBalancesFrom } = await import('@/lib/calculations/balance-calculator');
-
-      const endDate = addMonths(eventDate, 6);
-      await recalculateBalancesFrom(eventDate, endDate);
-
-      const response: ApiResponse = {
-        success: true,
-        message: 'Recurring event group deleted successfully',
-      };
-
-      return NextResponse.json(response);
-    }
-
-    // Delete single event
+    // Delete the event
     await deleteProjectionEvent(id);
 
     // Recalculate balances from the event date forward (6 months)

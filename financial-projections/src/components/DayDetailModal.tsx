@@ -51,6 +51,7 @@ export default function DayDetailModal({
   onRefresh,
 }: DayDetailModalProps) {
   const [showEventForm, setShowEventForm] = useState(false);
+  const [recurringMode, setRecurringMode] = useState(false);
   const [settingActualBalance, setSettingActualBalance] = useState(false);
   const [actualBalanceInput, setActualBalanceInput] = useState(
     balance?.actualBalance?.toString() || ''
@@ -233,13 +234,28 @@ export default function DayDetailModal({
               <h3 className="text-lg font-semibold text-gray-900">
                 Events ({events.length})
               </h3>
-              <button
-                onClick={() => setShowEventForm(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                data-testid="add-event-button"
-              >
-                + Add Event
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setRecurringMode(false);
+                    setShowEventForm(true);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  data-testid="add-event-button"
+                >
+                  + Add Event
+                </button>
+                <button
+                  onClick={() => {
+                    setRecurringMode(true);
+                    setShowEventForm(true);
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                  data-testid="add-recurring-event-button"
+                >
+                  + Add Recurring Event
+                </button>
+              </div>
             </div>
 
             {events.length === 0 ? (
@@ -302,14 +318,21 @@ export default function DayDetailModal({
           {/* Event Form */}
           {showEventForm && (
             <div className="mt-6 border-t pt-6" data-testid="event-form-container">
-              <h3 className="text-lg font-semibold mb-4">Add New Event</h3>
+              <h3 className="text-lg font-semibold mb-4">
+                {recurringMode ? 'Add New Recurring Event' : 'Add New Event'}
+              </h3>
               <ProjectionEventForm
                 date={date}
-                onCancel={() => setShowEventForm(false)}
+                onCancel={() => {
+                  setShowEventForm(false);
+                  setRecurringMode(false);
+                }}
                 onSuccess={() => {
                   setShowEventForm(false);
+                  setRecurringMode(false);
                   onRefresh();
                 }}
+                initialRecurringMode={recurringMode}
               />
             </div>
           )}
