@@ -82,32 +82,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Settings Summary Card */}
-        <div className="bg-white rounded-lg shadow mb-8 p-6" data-testid="settings-card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Current Balance</h2>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Initial Bank Balance</p>
-              <p className="text-2xl font-bold text-gray-900" data-testid="initial-balance">
-                {settings.initialBankBalance != null
-                  ? formatCurrency(settings.initialBankBalance, settings.currency)
-                  : 'Not Set'}
-              </p>
-              {settings.initialBalanceDate && (
-                <p className="text-sm text-gray-500 mt-1">
-                  as of {format(new Date(settings.initialBalanceDate), 'MMM d, yyyy')}
-                </p>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Preferences</p>
-              <p className="text-sm text-gray-900">
-                {settings.currency} • {settings.dateFormat === 'UK' ? 'DD/MM/YYYY' : 'MM/DD/YYYY'}
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Monthly Projections Card */}
