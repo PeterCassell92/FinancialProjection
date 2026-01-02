@@ -71,7 +71,8 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (
       !body.name ||
-      !body.value ||
+      body.value === undefined ||
+      body.value === null ||
       !body.type ||
       !body.certainty ||
       !body.startDate ||

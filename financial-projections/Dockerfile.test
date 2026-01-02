@@ -1,0 +1,31 @@
+# Dockerfile for test environment Next.js application
+FROM node:24-alpine
+
+# Install dependencies for Prisma
+RUN apk add --no-cache libc6-compat openssl
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY .yarn ./.yarn
+
+# Install dependencies
+RUN yarn install --immutable
+
+# Copy application files
+COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Expose port
+EXPOSE 3000
+
+# Set environment to test
+ENV NODE_ENV=test
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Start the development server
+CMD ["yarn", "dev"]
