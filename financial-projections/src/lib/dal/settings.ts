@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { startOfDay } from 'date-fns';
+import { Currency, DateFormat } from '@prisma/client';
 
 /**
  * Get the current settings (there should only be one record)
@@ -40,6 +41,42 @@ export async function updateInitialBankBalance(
 
   if (newBalanceDate) {
     updateData.initialBalanceDate = startOfDay(newBalanceDate);
+  }
+
+  return await prisma.settings.update({
+    where: { id: settingsId },
+    data: updateData,
+  });
+}
+
+/**
+ * Update settings (currency, dateFormat, etc.)
+ */
+export async function updateSettings(
+  settingsId: string,
+  updates: {
+    initialBankBalance?: number;
+    initialBalanceDate?: Date;
+    currency?: Currency;
+    dateFormat?: DateFormat;
+  }
+) {
+  const updateData: any = {};
+
+  if (updates.initialBankBalance !== undefined) {
+    updateData.initialBankBalance = updates.initialBankBalance;
+  }
+
+  if (updates.initialBalanceDate !== undefined) {
+    updateData.initialBalanceDate = startOfDay(updates.initialBalanceDate);
+  }
+
+  if (updates.currency !== undefined) {
+    updateData.currency = updates.currency;
+  }
+
+  if (updates.dateFormat !== undefined) {
+    updateData.dateFormat = updates.dateFormat;
   }
 
   return await prisma.settings.update({

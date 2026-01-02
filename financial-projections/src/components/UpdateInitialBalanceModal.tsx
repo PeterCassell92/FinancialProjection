@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { DatePicker } from '@/components/DatePicker';
 
 interface UpdateInitialBalanceModalProps {
   isOpen: boolean;
@@ -21,8 +22,8 @@ export default function UpdateInitialBalanceModal({
   welcomeMode = false,
 }: UpdateInitialBalanceModalProps) {
   const [balance, setBalance] = useState(currentBalance.toString());
-  const [date, setDate] = useState(
-    currentDate || format(new Date(), 'yyyy-MM-dd')
+  const [date, setDate] = useState<Date>(
+    currentDate ? new Date(currentDate) : new Date()
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export default function UpdateInitialBalanceModal({
   useEffect(() => {
     if (isOpen) {
       setBalance(currentBalance.toString());
-      setDate(currentDate || format(new Date(), 'yyyy-MM-dd'));
+      setDate(currentDate ? new Date(currentDate) : new Date());
       setError(null);
     }
   }, [isOpen, currentBalance, currentDate]);
@@ -47,18 +48,19 @@ export default function UpdateInitialBalanceModal({
     }
 
     // Validate date is not in the future
-    const selectedDate = new Date(date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (selectedDate > today) {
+    if (date > today) {
       setError('Initial balance date cannot be in the future');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await onUpdate(balanceNum, date);
+      // Convert Date object to string for API
+      const dateString = format(date, 'yyyy-MM-dd');
+      await onUpdate(balanceNum, dateString);
       onClose();
     } catch (err) {
       setError('Failed to update initial balance');
@@ -126,15 +128,10 @@ export default function UpdateInitialBalanceModal({
             >
               Balance Date
             </label>
-            <input
-              type="date"
-              id="date"
+            <DatePicker
               value={date}
-              max={format(new Date(), 'yyyy-MM-dd')}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              data-testid="date-input"
-              required
+              onChange={(selectedDate) => selectedDate && setDate(selectedDate)}
+              placeholder="Select date"
               disabled={isSubmitting}
             />
             <p className="mt-1 text-xs text-gray-500">

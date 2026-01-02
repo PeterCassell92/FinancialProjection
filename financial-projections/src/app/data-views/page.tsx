@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format, startOfMonth, endOfMonth, addMonths, eachMonthOfInterval, parseISO } from 'date-fns';
+import { useAppSelector } from '@/lib/redux/hooks';
+import { formatCurrency } from '@/lib/utils/currency';
 
 interface ProjectionEvent {
   id: string;
@@ -27,6 +29,7 @@ interface MonthlyData {
 }
 
 export default function DataViews() {
+  const currency = useAppSelector((state) => state.settings.currency);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<ProjectionEvent[]>([]);
   const [balances, setBalances] = useState<DailyBalance[]>([]);
@@ -187,7 +190,7 @@ export default function DataViews() {
                             netAmount >= 0 ? 'text-green-700' : 'text-red-700'
                           }`}
                         >
-                          Net: {netAmount >= 0 ? '+' : ''}${netAmount.toFixed(2)}
+                          Net: {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount, currency)}
                         </span>
                       </div>
 
@@ -197,7 +200,7 @@ export default function DataViews() {
                           <div className="flex items-center justify-between text-sm mb-1">
                             <span className="text-gray-600">Expenses</span>
                             <span className="text-red-700 font-semibold">
-                              ${data.expenses.toFixed(2)}
+                              {formatCurrency(data.expenses, currency)}
                             </span>
                           </div>
                           <div className="h-8 bg-gray-100 rounded overflow-hidden">
@@ -213,7 +216,7 @@ export default function DataViews() {
                           <div className="flex items-center justify-between text-sm mb-1">
                             <span className="text-gray-600">Income</span>
                             <span className="text-green-700 font-semibold">
-                              ${data.income.toFixed(2)}
+                              {formatCurrency(data.income, currency)}
                             </span>
                           </div>
                           <div className="h-8 bg-gray-100 rounded overflow-hidden">
@@ -300,19 +303,23 @@ export default function DataViews() {
           <div className="bg-white rounded-lg shadow p-4" data-testid="stat-total-expenses">
             <div className="text-sm text-gray-600">Total Expenses</div>
             <div className="text-2xl font-bold text-red-700">
-              ${events
-                .filter((e) => e.type === 'EXPENSE' && e.certainty !== 'UNLIKELY')
-                .reduce((sum, e) => sum + e.value, 0)
-                .toFixed(2)}
+              {formatCurrency(
+                events
+                  .filter((e) => e.type === 'EXPENSE' && e.certainty !== 'UNLIKELY')
+                  .reduce((sum, e) => sum + e.value, 0),
+                currency
+              )}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4" data-testid="stat-total-income">
             <div className="text-sm text-gray-600">Total Income</div>
             <div className="text-2xl font-bold text-green-700">
-              ${events
-                .filter((e) => e.type === 'INCOMING' && e.certainty !== 'UNLIKELY')
-                .reduce((sum, e) => sum + e.value, 0)
-                .toFixed(2)}
+              {formatCurrency(
+                events
+                  .filter((e) => e.type === 'INCOMING' && e.certainty !== 'UNLIKELY')
+                  .reduce((sum, e) => sum + e.value, 0),
+                currency
+              )}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4" data-testid="stat-net-total">
@@ -329,13 +336,15 @@ export default function DataViews() {
                   : 'text-red-700'
               }`}
             >
-              ${events
-                .filter((e) => e.certainty !== 'UNLIKELY')
-                .reduce(
-                  (sum, e) => sum + (e.type === 'INCOMING' ? e.value : -e.value),
-                  0
-                )
-                .toFixed(2)}
+              {formatCurrency(
+                events
+                  .filter((e) => e.certainty !== 'UNLIKELY')
+                  .reduce(
+                    (sum, e) => sum + (e.type === 'INCOMING' ? e.value : -e.value),
+                    0
+                  ),
+                currency
+              )}
             </div>
           </div>
         </div>

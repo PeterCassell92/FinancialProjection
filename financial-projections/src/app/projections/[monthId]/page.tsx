@@ -16,6 +16,8 @@ import {
   isSameDay,
 } from 'date-fns';
 import DayDetailModal from '@/components/DayDetailModal';
+import { useAppSelector } from '@/lib/redux/hooks';
+import { formatCurrency } from '@/lib/utils/currency';
 
 interface ProjectionEvent {
   id: string;
@@ -44,6 +46,7 @@ export default function MonthlyProjection() {
   const params = useParams();
   const router = useRouter();
   const monthId = params.monthId as string;
+  const currency = useAppSelector((state) => state.settings.currency);
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<ProjectionEvent[]>([]);
@@ -261,7 +264,7 @@ export default function MonthlyProjection() {
                             className="inline-block bg-orange-500 text-black font-bold text-xs px-2 py-1 rounded-full"
                             data-testid={`actual-balance__${format(dayData.date, 'd')}`}
                           >
-                            ${actualBalance.toFixed(0)}
+                            {formatCurrency(actualBalance, currency).replace(/\.\d+$/, '')}
                           </span>
                         </div>
                       )}
@@ -275,7 +278,7 @@ export default function MonthlyProjection() {
                             }`}
                             data-testid={`expected-balance__${format(dayData.date, 'd')}`}
                           >
-                            ${expectedBalance.toFixed(0)}
+                            {formatCurrency(expectedBalance, currency).replace(/\.\d+$/, '')}
                           </span>
                         </div>
                       )}
@@ -296,13 +299,13 @@ export default function MonthlyProjection() {
           <div className="bg-white rounded-lg shadow p-4" data-testid="summary-expenses">
             <div className="text-sm text-gray-600">Total Expenses</div>
             <div className="text-2xl font-bold text-red-700">
-              ${events.filter((e) => e.type === 'EXPENSE').reduce((sum, e) => sum + e.value, 0).toFixed(2)}
+              {formatCurrency(events.filter((e) => e.type === 'EXPENSE').reduce((sum, e) => sum + e.value, 0), currency)}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4" data-testid="summary-income">
             <div className="text-sm text-gray-600">Total Income</div>
             <div className="text-2xl font-bold text-green-700">
-              ${events.filter((e) => e.type === 'INCOMING').reduce((sum, e) => sum + e.value, 0).toFixed(2)}
+              {formatCurrency(events.filter((e) => e.type === 'INCOMING').reduce((sum, e) => sum + e.value, 0), currency)}
             </div>
           </div>
         </div>

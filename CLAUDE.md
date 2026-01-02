@@ -8,10 +8,12 @@ A Next.js application for personal financial projections, allowing users to proj
 
 - **Frontend**: Next.js 14+ with TypeScript
 - **UI Framework**: React 18+
+- **Component Library**: shadcn/ui (Radix UI + Tailwind CSS)
 - **Database**: PostgreSQL (local)
 - **ORM**: Prisma
-- **Styling**: Tailwind CSS (recommended) or CSS Modules
-- **State Management**: React Context API or Zustand (TBD based on complexity)
+- **Styling**: Tailwind CSS v4
+- **State Management**: React Context API
+- **Testing**: Jest + Docker-isolated test environment
 
 ## Project Goals
 
@@ -109,10 +111,11 @@ All database operations will go through a dedicated DAL to:
 
 ### Prisma Schema Design
 
-The database schema will prioritize:
+The database schema prioritizes:
 - Data integrity through proper relationships
 - Efficient queries for calendar views
-- Support for recurring event patterns via `EventRecurringDate` junction table
+- Support for recurring event patterns via `RecurringProjectionEventRule` model
+- User preferences (currency, date format) stored in Settings
 - Audit trails for financial data
 - Cascade deletes for data consistency
 
@@ -128,11 +131,14 @@ Bank balance calculations will:
 
 ### Recurring Events Architecture
 
-Recurring events use a flexible one-to-many relationship:
-- Base `ProjectionEvent` contains event details and pattern metadata
-- `EventRecurringDate` table stores each occurrence date
-- Pattern metadata (`onTheSameDateEachMonth`, `monthlyEventDay`, `untilTargetDate`) enables UI repopulation
-- Supports both manual date entry and automatic pattern generation
+Recurring events use a rule-based generation system:
+- `RecurringProjectionEventRule` defines the event template and recurrence pattern
+- Contains all event properties (name, value, type, certainty, etc.)
+- Recurrence controlled by `frequency` (DAILY, WEEKLY, MONTHLY, ANNUAL), `startDate`, and `endDate`
+- Generates child `ProjectionEvent` records linked via `recurringRuleId`
+- Events automatically regenerated when rule is updated
+- Supports frequency-based patterns (not manual date entry)
+- End date is **required** to prevent infinite event generation
 
 ### Testing Infrastructure
 
@@ -168,13 +174,36 @@ See [ImplementationPlan.md](./ImplementationPlan.md) for detailed step-by-step i
 All requirements have been clarified and confirmed:
 
 1. **Actual Balance Feature**: Users can set actual balance for any day, overriding calculated values
-2. **Recurring Events**: One-to-many relationship with pattern storage and manual date support
+2. **Recurring Events**: Rule-based system with `RecurringProjectionEventRule` generating child `ProjectionEvent` records
 3. **Day Interaction**: Click day cells to open detailed day view modal
 4. **Data Visualizations**: Monthly income vs expense (default) and balance over time charts
 5. **Certainty Impact**: All events EXCEPT "unlikely" affect balance calculations
 6. **Pagination**: "Show Next Six Months" navigates to months 7-12
-7. **Data Scope**: Future months only initially
+7. **Data Scope**: Future months only initially (supports 5-10 year planning)
 8. **Package Manager**: yarn
 9. **Testing**: Comprehensive data-testid attributes on all components
+10. **Currency & Date Format**: User-configurable in Settings (GBP/USD, UK/US date format)
+11. **Settings UI**: Full-screen modal with country presets (UK/US) for quick configuration
+
+## Current Implementation Status
+
+### Completed Features
+
+- ✅ Database schema with Settings, ProjectionEvent, RecurringProjectionEventRule, DailyBalance models
+- ✅ Currency and date format preferences in Settings
+- ✅ Recurring event rule system with automatic event generation
+- ✅ Balance calculation engine with actual balance override support
+- ✅ Dashboard with Header component and burger menu
+- ✅ Full-screen settings modal with country presets
+- ✅ API endpoints for settings (GET, PUT, PATCH) and recurring event rules
+- ✅ Docker-isolated test environment for API testing
+- ✅ Currency formatting utilities (`formatCurrency`, `getCurrencySymbol`)
+- ✅ Date formatting utilities (`formatDate`, `parseDate`, `getDateFormatPattern`)
+
+### In Progress
+
+- 🔄 Integration of shadcn/ui component library
+- 🔄 Updating all currency displays to use user preferences
+- 🔄 Updating all date inputs to respect user's date format
 
 For detailed implementation steps, see [ImplementationPlan.md](./ImplementationPlan.md).

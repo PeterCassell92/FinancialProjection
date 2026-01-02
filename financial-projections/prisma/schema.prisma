@@ -11,11 +11,13 @@ datasource db {
 }
 
 model Settings {
-  id                    String   @id @default(cuid())
-  initialBankBalance    Decimal  @db.Decimal(10, 2)
-  initialBalanceDate    DateTime @db.Date  // The date when initial balance is set (typically today on first launch)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                    String      @id @default(cuid())
+  initialBankBalance    Decimal     @db.Decimal(10, 2)
+  initialBalanceDate    DateTime    @db.Date  // The date when initial balance is set (typically today on first launch)
+  currency              Currency    @default(GBP)
+  dateFormat            DateFormat  @default(UK)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 }
 
 enum EventType {
@@ -35,6 +37,16 @@ enum RecurrenceFrequency {
   WEEKLY
   MONTHLY
   ANNUAL
+}
+
+enum Currency {
+  GBP
+  USD
+}
+
+enum DateFormat {
+  UK   // DD/MM/YYYY
+  US   // MM/DD/YYYY
 }
 
 model RecurringProjectionEventRule {

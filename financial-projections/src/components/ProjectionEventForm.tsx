@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
+import { DatePicker } from '@/components/DatePicker';
 
 interface ProjectionEventFormProps {
   date: Date;
@@ -28,8 +29,8 @@ export default function ProjectionEventForm({
   });
 
   const [recurringData, setRecurringData] = useState({
-    startDate: format(date, 'yyyy-MM-dd'),
-    endDate: '',
+    startDate: date,
+    endDate: undefined as Date | undefined,
     frequency: 'MONTHLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'ANNUAL',
   });
 
@@ -57,8 +58,8 @@ export default function ProjectionEventForm({
       const body = recurrentMode
         ? {
             ...baseData,
-            startDate: recurringData.startDate,
-            endDate: recurringData.endDate,
+            startDate: format(recurringData.startDate, 'yyyy-MM-dd'),
+            endDate: recurringData.endDate ? format(recurringData.endDate, 'yyyy-MM-dd') : undefined,
             frequency: recurringData.frequency,
           }
         : {
@@ -245,14 +246,10 @@ export default function ProjectionEventForm({
               <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-1">
                 Start Date *
               </label>
-              <input
-                id="start-date"
-                type="date"
+              <DatePicker
                 value={recurringData.startDate}
-                onChange={(e) => setRecurringData({ ...recurringData, startDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-                data-testid="start-date-input"
+                onChange={(date) => date && setRecurringData({ ...recurringData, startDate: date })}
+                placeholder="Select start date"
               />
             </div>
 
@@ -260,14 +257,10 @@ export default function ProjectionEventForm({
               <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mb-1">
                 End Date *
               </label>
-              <input
-                id="end-date"
-                type="date"
+              <DatePicker
                 value={recurringData.endDate}
-                onChange={(e) => setRecurringData({ ...recurringData, endDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-                data-testid="end-date-input"
+                onChange={(date) => setRecurringData({ ...recurringData, endDate: date })}
+                placeholder="Select end date"
               />
             </div>
           </div>

@@ -4,10 +4,12 @@ import {
   getSettings,
   updateInitialBankBalance,
   createSettings,
+  updateSettings,
 } from '@/lib/dal/settings';
 import { setActualBalance } from '@/lib/dal/daily-balance';
 import { ApiResponse, UpdateSettingsRequest } from '@/types';
 import { startOfDay } from 'date-fns';
+import { Currency, DateFormat } from '@prisma/client';
 
 /**
  * GET /api/settings
@@ -29,6 +31,8 @@ export async function GET() {
         // Return null if balance is 0 (indicating not set by user)
         initialBankBalance: settings.initialBankBalance.toString() === '0' ? null : parseFloat(settings.initialBankBalance.toString()),
         initialBalanceDate: settings.initialBalanceDate,
+        currency: settings.currency,
+        dateFormat: settings.dateFormat,
         createdAt: settings.createdAt,
         updatedAt: settings.updatedAt,
       },
@@ -79,10 +83,14 @@ export async function PUT(request: NextRequest) {
 
     // Update settings
     const currentSettings = await getOrCreateSettings();
-    const updatedSettings = await updateInitialBankBalance(
+    const updatedSettings = await updateSettings(
       currentSettings.id,
-      body.initialBankBalance,
-      effectiveDate
+      {
+        initialBankBalance: body.initialBankBalance,
+        initialBalanceDate: effectiveDate,
+        currency: body.currency as Currency | undefined,
+        dateFormat: body.dateFormat as DateFormat | undefined,
+      }
     );
 
     // Set the actual balance for the initial balance date
@@ -97,6 +105,68 @@ export async function PUT(request: NextRequest) {
           updatedSettings.initialBankBalance.toString()
         ),
         initialBalanceDate: updatedSettings.initialBalanceDate,
+        currency: updatedSettings.currency,
+        dateFormat: updatedSettings.dateFormat,
+        createdAt: updatedSettings.createdAt,
+        updatedAt: updatedSettings.updatedAt,
+      },
+      message: 'Settings updated successfully',
+    };
+
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to update settings',
+    };
+    return NextResponse.json(response, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/settings
+ * Update currency and date format preferences
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    // Validate currency
+    if (body.currency && !['GBP', 'USD'].includes(body.currency)) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'currency must be either GBP or USD',
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    // Validate dateFormat
+    if (body.dateFormat && !['UK', 'US'].includes(body.dateFormat)) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'dateFormat must be either UK or US',
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    // Get current settings
+    const currentSettings = await getOrCreateSettings();
+
+    // Update only the provided fields
+    const updatedSettings = await updateSettings(currentSettings.id, {
+      currency: body.currency as Currency | undefined,
+      dateFormat: body.dateFormat as DateFormat | undefined,
+    });
+
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        id: updatedSettings.id,
+        initialBankBalance: parseFloat(updatedSettings.initialBankBalance.toString()),
+        initialBalanceDate: updatedSettings.initialBalanceDate,
+        currency: updatedSettings.currency,
+        dateFormat: updatedSettings.dateFormat,
         createdAt: updatedSettings.createdAt,
         updatedAt: updatedSettings.updatedAt,
       },

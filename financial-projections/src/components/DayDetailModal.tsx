@@ -3,6 +3,8 @@
 import { format } from 'date-fns';
 import { useState } from 'react';
 import ProjectionEventForm from './ProjectionEventForm';
+import { useAppSelector } from '@/lib/redux/hooks';
+import { formatCurrency } from '@/lib/utils/currency';
 
 interface ProjectionEvent {
   id: string;
@@ -50,6 +52,7 @@ export default function DayDetailModal({
   onClose,
   onRefresh,
 }: DayDetailModalProps) {
+  const currency = useAppSelector((state) => state.settings.currency);
   const [showEventForm, setShowEventForm] = useState(false);
   const [recurringMode, setRecurringMode] = useState(false);
   const [settingActualBalance, setSettingActualBalance] = useState(false);
@@ -176,7 +179,7 @@ export default function DayDetailModal({
               <div>
                 <p className="text-sm text-gray-600">Expected Balance</p>
                 <p className="text-xl font-bold text-gray-900" data-testid="expected-balance">
-                  ${balance?.expectedBalance.toFixed(2) || '0.00'}
+                  {formatCurrency(balance?.expectedBalance ?? 0, currency)}
                 </p>
               </div>
               <div>
@@ -184,7 +187,7 @@ export default function DayDetailModal({
                 {!settingActualBalance ? (
                   <p className="text-xl font-bold text-green-700" data-testid="actual-balance">
                     {balance?.actualBalance !== null && balance?.actualBalance !== undefined
-                      ? `$${balance.actualBalance.toFixed(2)}`
+                      ? formatCurrency(balance.actualBalance, currency)
                       : 'Not set'}
                   </p>
                 ) : (
@@ -287,8 +290,8 @@ export default function DayDetailModal({
 
                         <div className="flex items-center gap-4 text-sm">
                           <span className={`font-bold ${typeColors[event.type]}`}>
-                            {event.type === 'EXPENSE' ? '-' : '+'}$
-                            {event.value.toFixed(2)}
+                            {event.type === 'EXPENSE' ? '-' : '+'}
+                            {formatCurrency(event.value, currency)}
                           </span>
 
                           {event.type === 'EXPENSE' && event.payTo && (

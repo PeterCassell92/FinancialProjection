@@ -3,39 +3,85 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format, addMonths, startOfMonth } from 'date-fns';
-import Header from '@/components/Header';
-import FullScreenSettingsModal from '@/components/FullScreenSettingsModal';
-import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
-import { updateSettings } from '@/lib/redux/settingsSlice';
-import { formatCurrency } from '@/lib/utils/currency';
-import { Currency, DateFormat } from '@prisma/client';
+import UpdateInitialBalanceModal from '@/components/UpdateInitialBalanceModal';
+import { SettingsResponseSchema } from '@/lib/schemas/api-responses';
+
+interface Settings {
+  id: string;
+  initialBankBalance?: number | null;
+  initialBalanceDate?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function Dashboard() {
-  const dispatch = useAppDispatch();
-  const settings = useAppSelector((state) => state.settings);
-
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [monthOffset, setMonthOffset] = useState(0); // 0 for months 0-5, 6 for months 6-11
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWelcomeMode, setIsWelcomeMode] = useState(false);
 
-  // Check for first-time user when settings load
   useEffect(() => {
-    if (!settings.loading && settings.initialBankBalance == null) {
-      setIsWelcomeMode(true);
-      setIsSettingsModalOpen(true);
-    }
-  }, [settings.loading, settings.initialBankBalance]);
+    fetchSettings();
+  }, []);
 
-  const handleUpdateSettings = async (updates: {
-    initialBankBalance?: number;
-    initialBalanceDate?: string;
-    currency?: Currency;
-    dateFormat?: DateFormat;
-  }) => {
-    await dispatch(updateSettings(updates)).unwrap();
-    if (isWelcomeMode) {
-      setIsWelcomeMode(false);
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      const rawData = await response.json();
+
+      // Validate response with Zod
+      const validationResult = SettingsResponseSchema.safeParse(rawData);
+
+      if (!validationResult.success) {
+        console.error('Invalid API response:', validationResult.error);
+        setError('Received invalid data from server');
+        return;
+      }
+
+      const data = validationResult.data;
+
+      if (data.success && data.data) {
+        setSettings(data.data);
+
+        // Check if this is a first-time user (initial balance not set)
+        // initialBankBalance will be null or undefined for first-time users
+        const isFirstTime = data.data.initialBankBalance == null;
+        if (isFirstTime) {
+          setIsWelcomeMode(true);
+          setIsModalOpen(true);
+        }
+      } else {
+        setError(data.error || 'Failed to fetch settings');
+      }
+    } catch (err) {
+      setError('Failed to connect to API');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateBalance = async (balance: number, date: string) => {
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          initialBankBalance: balance,
+          initialBalanceDate: date,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSettings(data.data);
+      } else {
+        throw new Error(data.error || 'Failed to update balance');
+      }
+    } catch (err) {
+      throw err; // Re-throw to be handled by modal
     }
   };
 
@@ -58,7 +104,7 @@ export default function Dashboard() {
     setMonthOffset(0);
   };
 
-  if (settings.loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50" data-testid="dashboard-loading">
         <div className="text-gray-600">Loading...</div>
@@ -68,43 +114,41 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50" data-testid="dashboard">
-      {/* Header with Burger Menu */}
-      <Header
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
-        onOpenInfo={() => setIsInfoModalOpen(true)}
-      />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900" data-testid="dashboard-title">
+            Financial Projections
+          </h1>
+          <p className="mt-2 text-gray-600">
+            Track your expected expenses and income over the next 6 months
+          </p>
+        </div>
+
         {/* Error Display */}
-        {settings.error && (
+        {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4" data-testid="dashboard-error">
-            <p className="text-red-800">{settings.error}</p>
+            <p className="text-red-800">{error}</p>
           </div>
         )}
 
-        {/* Settings Summary Card */}
+        {/* Settings Card */}
         <div className="bg-white rounded-lg shadow mb-8 p-6" data-testid="settings-card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Current Balance</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Settings</h2>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Initial Bank Balance</p>
               <p className="text-2xl font-bold text-gray-900" data-testid="initial-balance">
-                {settings.initialBankBalance != null
-                  ? formatCurrency(settings.initialBankBalance, settings.currency)
-                  : 'Not Set'}
-              </p>
-              {settings.initialBalanceDate && (
-                <p className="text-sm text-gray-500 mt-1">
-                  as of {format(new Date(settings.initialBalanceDate), 'MMM d, yyyy')}
-                </p>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Preferences</p>
-              <p className="text-sm text-gray-900">
-                {settings.currency} • {settings.dateFormat === 'UK' ? 'DD/MM/YYYY' : 'MM/DD/YYYY'}
+                ${settings?.initialBankBalance != null ? settings.initialBankBalance.toFixed(2) : 'Not Set'}
               </p>
             </div>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              data-testid="update-balance-button"
+            >
+              Update Balance
+            </button>
           </div>
         </div>
 
@@ -195,67 +239,21 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Full-Screen Settings Modal */}
-      {settings.id && (
-        <FullScreenSettingsModal
-          isOpen={isSettingsModalOpen}
+      {/* Update Initial Balance Modal */}
+      {settings && (
+        <UpdateInitialBalanceModal
+          isOpen={isModalOpen}
           onClose={() => {
             // In welcome mode, don't allow closing without setting balance
             if (!isWelcomeMode) {
-              setIsSettingsModalOpen(false);
+              setIsModalOpen(false);
             }
           }}
-          currentSettings={{
-            id: settings.id,
-            initialBankBalance: settings.initialBankBalance ?? 0,
-            initialBalanceDate: settings.initialBalanceDate || new Date().toISOString(),
-            currency: settings.currency,
-            dateFormat: settings.dateFormat,
-          }}
-          onUpdate={handleUpdateSettings}
+          currentBalance={settings.initialBankBalance ?? 0}
+          currentDate={settings.initialBalanceDate ? format(new Date(settings.initialBalanceDate), 'yyyy-MM-dd') : undefined}
+          onUpdate={handleUpdateBalance}
+          welcomeMode={isWelcomeMode}
         />
-      )}
-
-      {/* Info Modal (placeholder) */}
-      {isInfoModalOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-          onClick={() => setIsInfoModalOpen(false)}
-          data-testid="info-modal-overlay"
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-            data-testid="info-modal"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">About Financial Projections</h2>
-              <button
-                onClick={() => setIsInfoModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
-                data-testid="info-modal-close-button"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="prose max-w-none">
-              <p className="text-gray-600 mb-4">
-                This application helps you project your bank balance forward through time by tracking expected expenses and income.
-              </p>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Features:</h3>
-              <ul className="list-disc list-inside text-gray-600 space-y-2">
-                <li>Track projection events with different certainty levels (unlikely, possible, likely, certain)</li>
-                <li>Create recurring events that automatically generate across date ranges</li>
-                <li>View daily balance projections in a calendar format</li>
-                <li>Set actual balances to override calculated projections</li>
-                <li>Visualize financial trends with charts and analytics</li>
-                <li>Customize currency and date format preferences</li>
-              </ul>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
