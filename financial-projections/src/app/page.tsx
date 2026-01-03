@@ -17,15 +17,19 @@ export default function Dashboard() {
   const [monthOffset, setMonthOffset] = useState(0); // 0 for months 0-5, 6 for months 6-11
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-  const [isWelcomeMode, setIsWelcomeMode] = useState(false);
+  const [hasCompletedWelcome, setHasCompletedWelcome] = useState(false);
 
-  // Check for first-time user when settings load
+  // Derive welcome mode from settings state - first-time users have no initial balance
+  const isWelcomeMode = !settings.loading &&
+                        settings.initialBankBalance == null &&
+                        !hasCompletedWelcome;
+
+  // Open settings modal automatically for first-time users
   useEffect(() => {
-    if (!settings.loading && settings.initialBankBalance == null) {
-      setIsWelcomeMode(true);
+    if (isWelcomeMode && !isSettingsModalOpen) {
       setIsSettingsModalOpen(true);
     }
-  }, [settings.loading, settings.initialBankBalance]);
+  }, [isWelcomeMode, isSettingsModalOpen]);
 
   const handleUpdateSettings = async (updates: {
     initialBankBalance?: number;
@@ -34,8 +38,9 @@ export default function Dashboard() {
     dateFormat?: DateFormat;
   }) => {
     await dispatch(updateSettings(updates)).unwrap();
+    // Mark welcome as completed when settings are saved for the first time
     if (isWelcomeMode) {
-      setIsWelcomeMode(false);
+      setHasCompletedWelcome(true);
     }
   };
 

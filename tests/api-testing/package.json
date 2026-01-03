@@ -1,0 +1,31 @@
+{
+  "name": "api-testing",
+  "version": "1.0.0",
+  "description": "API tests for Financial Projections application",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:verbose": "jest --verbose",
+    "db:setup": "./scripts/setup-test-db.sh",
+    "db:teardown": "./scripts/teardown-test-db.sh",
+    "db:migrate": "./scripts/run-migrations.sh",
+    "db:seed": "./scripts/seed-test-data.sh",
+    "db:reset": "yarn db:teardown && yarn db:setup && yarn db:migrate",
+    "env:setup": "./scripts/setup-test-env.sh",
+    "env:teardown": "docker-compose -f docker-compose.test.yml down -v",
+    "test:containerized": "./scripts/test-containerized.sh",
+    "test:ci": "./scripts/test-containerized.sh"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.3",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3"
+  },
+  "volta": {
+    "node": "24.12.0",
+    "yarn": "4.12.0"
+  }
+}

@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  test-db:
+    image: postgres:16
+    container_name: financial-projections-test-db
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: financial_projections_test
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d financial_projections_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    tmpfs:
+      - /var/lib/postgresql/data  # Use tmpfs for speed (data not persisted)
+    networks:
+      - test-network
+
+  test-app:
+    build:
+      context: ../../financial-projections
+      dockerfile: Dockerfile.test
+    container_name: financial-projections-test-app
+    depends_on:
+      test-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://test_user:test_password@test-db:5432/financial_projections_test
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: 1
+    ports:
+      - "3001:3000"  # Expose on 3001 to avoid conflicts with local dev server
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - test-network
+    volumes:
+      - ../../financial-projections:/app
+      - /app/node_modules
+      - /app/.next
+
+networks:
+  test-network:
+    driver: bridge

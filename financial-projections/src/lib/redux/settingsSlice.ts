@@ -21,7 +21,7 @@ const initialState: SettingsState = {
   dateFormat: 'UK' as DateFormat,
   createdAt: null,
   updatedAt: null,
-  loading: false,
+  loading: true,  // Start as loading - fetchSettings is triggered on mount
   error: null,
 };
 
