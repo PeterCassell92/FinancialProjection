@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { format, addMonths, startOfMonth } from 'date-fns';
 import Header from '@/components/Header';
@@ -15,7 +15,7 @@ export default function Dashboard() {
   const settings = useAppSelector((state) => state.settings);
 
   const [monthOffset, setMonthOffset] = useState(0); // 0 for months 0-5, 6 for months 6-11
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isSettingsModalOpenManually, setIsSettingsModalOpenManually] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [hasCompletedWelcome, setHasCompletedWelcome] = useState(false);
 
@@ -24,12 +24,8 @@ export default function Dashboard() {
                         settings.initialBankBalance == null &&
                         !hasCompletedWelcome;
 
-  // Open settings modal automatically for first-time users
-  useEffect(() => {
-    if (isWelcomeMode && !isSettingsModalOpen) {
-      setIsSettingsModalOpen(true);
-    }
-  }, [isWelcomeMode, isSettingsModalOpen]);
+  // Modal should be open if in welcome mode OR manually opened via burger menu
+  const isSettingsModalOpen = isWelcomeMode || isSettingsModalOpenManually;
 
   const handleUpdateSettings = async (updates: {
     initialBankBalance?: number;
@@ -75,7 +71,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50" data-testid="dashboard">
       {/* Header with Burger Menu */}
       <Header
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onOpenSettings={() => setIsSettingsModalOpenManually(true)}
         onOpenInfo={() => setIsInfoModalOpen(true)}
       />
 
@@ -181,7 +177,7 @@ export default function Dashboard() {
           onClose={() => {
             // In welcome mode, don't allow closing without setting balance
             if (!isWelcomeMode) {
-              setIsSettingsModalOpen(false);
+              setIsSettingsModalOpenManually(false);
             }
           }}
           currentSettings={{
