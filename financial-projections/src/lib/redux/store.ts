@@ -1,10 +1,12 @@
 import { configureStore } from '@reduxjs/toolkit';
 import settingsReducer from './settingsSlice';
+import scenarioReducer from './scenarioSlice';
 
 export const makeStore = () => {
   return configureStore({
     reducer: {
       settings: settingsReducer,
+      scenario: scenarioReducer,
     },
   });
 };

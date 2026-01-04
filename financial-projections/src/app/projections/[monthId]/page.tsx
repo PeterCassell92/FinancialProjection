@@ -16,6 +16,8 @@ import {
   isSameDay,
 } from 'date-fns';
 import DayDetailModal from '@/components/DayDetailModal';
+import ScenarioPanel from '@/components/ScenarioPanel';
+import SaveScenarioModal from '@/components/SaveScenarioModal';
 import { useAppSelector } from '@/lib/redux/hooks';
 import { formatCurrency } from '@/lib/utils/currency';
 
@@ -47,6 +49,7 @@ export default function MonthlyProjection() {
   const router = useRouter();
   const monthId = params.monthId as string;
   const currency = useAppSelector((state) => state.settings.currency);
+  const currentDecisionPathStates = useAppSelector((state) => state.scenario.currentDecisionPathStates);
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<ProjectionEvent[]>([]);
@@ -62,6 +65,45 @@ export default function MonthlyProjection() {
   useEffect(() => {
     fetchData();
   }, [monthId]);
+
+  // Recalculate balances when decision path states change
+  useEffect(() => {
+    if (Object.keys(currentDecisionPathStates).length > 0) {
+      recalculateBalances();
+    }
+  }, [currentDecisionPathStates]);
+
+  const recalculateBalances = async () => {
+    try {
+      // Get enabled decision path IDs
+      const enabledDecisionPathIds = Object.entries(currentDecisionPathStates)
+        .filter(([_, enabled]) => enabled)
+        .map(([id, _]) => id);
+
+      // Trigger balance recalculation
+      await fetch('/api/calculate-balances', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: format(monthStart, 'yyyy-MM-dd'),
+          endDate: format(monthEnd, 'yyyy-MM-dd'),
+          enabledDecisionPathIds,
+        }),
+      });
+
+      // Refresh balances
+      const balancesResponse = await fetch(
+        `/api/daily-balance?startDate=${format(monthStart, 'yyyy-MM-dd')}&endDate=${format(monthEnd, 'yyyy-MM-dd')}`
+      );
+      const balancesData = await balancesResponse.json();
+
+      if (balancesData.success) {
+        setBalances(balancesData.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to recalculate balances:', err);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -167,8 +209,9 @@ export default function MonthlyProjection() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50" data-testid="monthly-projection">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gray-50 flex" data-testid="monthly-projection">
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -309,7 +352,11 @@ export default function MonthlyProjection() {
             </div>
           </div>
         </div>
+        </div>
       </div>
+
+      {/* Scenario Panel */}
+      <ScenarioPanel />
 
       {/* Day Detail Modal */}
       {showDayModal && selectedDay && (
@@ -321,6 +368,9 @@ export default function MonthlyProjection() {
           onRefresh={fetchData}
         />
       )}
+
+      {/* Save Scenario Modal */}
+      <SaveScenarioModal />
     </div>
   );
 }

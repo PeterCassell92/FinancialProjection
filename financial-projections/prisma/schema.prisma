@@ -60,7 +60,8 @@ model RecurringProjectionEventRule {
   paidBy      String?               // for incoming
 
   // Decision path for scenario modeling
-  decisionPath String?              // e.g., "take-new-job", "stay-current-role"
+  decisionPathId String?
+  decisionPath   DecisionPath?     @relation(fields: [decisionPathId], references: [id], onDelete: SetNull)
 
   // Recurrence definition
   startDate   DateTime              @db.Date
@@ -73,7 +74,7 @@ model RecurringProjectionEventRule {
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
 
-  @@index([decisionPath])
+  @@index([decisionPathId])
   @@index([startDate])
 }
 
@@ -89,7 +90,8 @@ model ProjectionEvent {
   date        DateTime        @db.Date
 
   // Decision path for scenario modeling
-  decisionPath String?
+  decisionPathId String?
+  decisionPath   DecisionPath? @relation(fields: [decisionPathId], references: [id], onDelete: SetNull)
 
   // Link to recurring rule (if generated from one)
   recurringRuleId String?
@@ -99,7 +101,7 @@ model ProjectionEvent {
   updatedAt   DateTime        @updatedAt
 
   @@index([date])
-  @@index([decisionPath])
+  @@index([decisionPathId])
   @@index([recurringRuleId])
 }
 
@@ -112,4 +114,47 @@ model DailyBalance {
   updatedAt       DateTime @updatedAt
 
   @@index([date])
+}
+
+// Track all unique decision paths in the system
+model DecisionPath {
+  id          String   @id @default(cuid())
+  name        String   @unique  // e.g., "take-new-job", "buy-house"
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  scenarioDecisionPaths ScenarioSetDecisionPath[]
+  projectionEvents      ProjectionEvent[]
+  recurringRules        RecurringProjectionEventRule[]
+}
+
+// Named scenario configurations
+model ScenarioSet {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)  // The "all enabled" default scenario
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  decisionPaths ScenarioSetDecisionPath[]
+
+  @@index([isDefault])
+}
+
+// Junction table: which decision paths are enabled in each scenario
+model ScenarioSetDecisionPath {
+  id             String       @id @default(cuid())
+  scenarioSetId  String
+  decisionPathId String
+  enabled        Boolean      @default(true)
+
+  scenarioSet    ScenarioSet  @relation(fields: [scenarioSetId], references: [id], onDelete: Cascade)
+  decisionPath   DecisionPath @relation(fields: [decisionPathId], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioSetId, decisionPathId])
+  @@index([scenarioSetId])
+  @@index([decisionPathId])
 }

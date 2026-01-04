@@ -55,6 +55,14 @@ export async function getProjectionEventsByDate(date: Date) {
  * Create a new projection event
  */
 export async function createProjectionEvent(input: CreateProjectionEventInput) {
+  // If decisionPath is provided, get or create it
+  let decisionPathId: string | undefined;
+  if (input.decisionPath) {
+    const { getOrCreateDecisionPath } = await import('./decision-paths');
+    const decisionPath = await getOrCreateDecisionPath(input.decisionPath);
+    decisionPathId = decisionPath.id;
+  }
+
   return await prisma.projectionEvent.create({
     data: {
       name: input.name,
@@ -65,8 +73,11 @@ export async function createProjectionEvent(input: CreateProjectionEventInput) {
       payTo: input.payTo,
       paidBy: input.paidBy,
       date: input.date,
-      decisionPath: input.decisionPath,
+      decisionPathId,
       recurringRuleId: input.recurringRuleId,
+    },
+    include: {
+      decisionPath: true,
     },
   });
 }

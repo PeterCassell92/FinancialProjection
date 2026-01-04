@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { DatePicker } from '@/components/DatePicker';
+import DecisionPathAutocomplete from '@/components/DecisionPathAutocomplete';
 
 interface ProjectionEventFormProps {
   date: Date;
@@ -26,6 +27,7 @@ export default function ProjectionEventForm({
     certainty: 'CERTAIN' as 'UNLIKELY' | 'POSSIBLE' | 'LIKELY' | 'CERTAIN',
     payTo: '',
     paidBy: '',
+    decisionPath: '',
   });
 
   const [recurringData, setRecurringData] = useState({
@@ -53,6 +55,7 @@ export default function ProjectionEventForm({
         certainty: formData.certainty,
         payTo: formData.type === 'EXPENSE' ? formData.payTo || undefined : undefined,
         paidBy: formData.type === 'INCOMING' ? formData.paidBy || undefined : undefined,
+        decisionPath: formData.decisionPath || undefined,
       };
 
       const body = recurrentMode
@@ -198,6 +201,21 @@ export default function ProjectionEventForm({
         </select>
         <p className="mt-1 text-xs text-gray-500">
           Note: Events marked as "Unlikely" won't be included in balance calculations
+        </p>
+      </div>
+
+      {/* Decision Path */}
+      <div>
+        <label htmlFor="decision-path" className="block text-sm font-medium text-gray-700 mb-1">
+          Decision Path (Optional)
+        </label>
+        <DecisionPathAutocomplete
+          value={formData.decisionPath}
+          onChange={(value) => setFormData({ ...formData, decisionPath: value })}
+          placeholder="e.g., take-new-job, buy-house"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Use decision paths to model different scenarios. Events can be toggled on/off based on the active scenario.
         </p>
       </div>
 

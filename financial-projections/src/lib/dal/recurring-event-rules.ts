@@ -66,6 +66,14 @@ export async function getRecurringEventRulesByDecisionPath(decisionPath: string)
  * Create a new recurring event rule (without generating events)
  */
 export async function createRecurringEventRule(input: CreateRecurringEventRuleInput) {
+  // If decisionPath is provided, get or create it
+  let decisionPathId: string | undefined;
+  if (input.decisionPath) {
+    const { getOrCreateDecisionPath } = await import('./decision-paths');
+    const decisionPath = await getOrCreateDecisionPath(input.decisionPath);
+    decisionPathId = decisionPath.id;
+  }
+
   return await prisma.recurringProjectionEventRule.create({
     data: {
       name: input.name,
@@ -75,10 +83,13 @@ export async function createRecurringEventRule(input: CreateRecurringEventRuleIn
       certainty: input.certainty,
       payTo: input.payTo,
       paidBy: input.paidBy,
-      decisionPath: input.decisionPath,
+      decisionPathId,
       startDate: input.startDate,
       endDate: input.endDate,
       frequency: input.frequency,
+    },
+    include: {
+      decisionPath: true,
     },
   });
 }

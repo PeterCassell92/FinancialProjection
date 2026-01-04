@@ -5,10 +5,15 @@ import { ApiResponse, CalculateBalancesRequest } from '@/types';
 /**
  * POST /api/calculate-balances
  * Trigger balance calculation for a date range
+ *
+ * Body can include:
+ * - startDate: string (required)
+ * - endDate: string (required)
+ * - enabledDecisionPathIds: string[] (optional) - IDs of decision paths that are enabled
  */
 export async function POST(request: NextRequest) {
   try {
-    const body: CalculateBalancesRequest = await request.json();
+    const body: CalculateBalancesRequest & { enabledDecisionPathIds?: string[] } = await request.json();
 
     if (!body.startDate || !body.endDate) {
       const response: ApiResponse = {
@@ -38,8 +43,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Calculate balances
-    await calculateDailyBalances(startDate, endDate);
+    // Convert enabled decision path IDs array to Set (if provided)
+    const enabledDecisionPathIds = body.enabledDecisionPathIds
+      ? new Set(body.enabledDecisionPathIds)
+      : undefined;
+
+    // Calculate balances with decision path filtering
+    await calculateDailyBalances(startDate, endDate, enabledDecisionPathIds);
 
     const response: ApiResponse = {
       success: true,

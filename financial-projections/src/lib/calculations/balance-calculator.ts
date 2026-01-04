@@ -52,10 +52,17 @@ async function findStartingBalanceAndDate(
  * 3. Calculate day-by-day from the starting balance date through the entire range
  * 4. When an actual balance is encountered, use it instead of the calculated value
  * 5. Store all calculated balances for the requested range
+ *
+ * @param startDate - Start of the date range
+ * @param endDate - End of the date range
+ * @param enabledDecisionPathIds - Optional set of decision path IDs that are enabled.
+ *                                  If provided, events with decision paths not in this set will be excluded.
+ *                                  If not provided, all events are included.
  */
 export async function calculateDailyBalances(
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  enabledDecisionPathIds?: Set<string>
 ): Promise<void> {
   // Normalize dates to start of day
   const start = startOfDay(startDate);
@@ -118,13 +125,20 @@ export async function calculateDailyBalances(
     // Get events for this day
     const dayEvents = eventsByDate.get(dateKey) || [];
 
-    // Calculate day's impact from events (excluding UNLIKELY)
+    // Calculate day's impact from events (excluding UNLIKELY and disabled decision paths)
     let dayImpact = 0;
 
     for (const event of dayEvents) {
       // Skip UNLIKELY events
       if (event.certainty === CertaintyLevel.UNLIKELY) {
         continue;
+      }
+
+      // Skip events with decision paths that are disabled
+      if (enabledDecisionPathIds && event.decisionPathId) {
+        if (!enabledDecisionPathIds.has(event.decisionPathId)) {
+          continue;
+        }
       }
 
       const eventValue = parseFloat(event.value.toString());
@@ -171,30 +185,52 @@ export async function calculateDailyBalances(
 /**
  * Recalculate balances from a specific date forward
  * Useful when events are added/removed/updated
+ *
+ * @param fromDate - Start date for recalculation
+ * @param toDate - End date for recalculation
+ * @param enabledDecisionPathIds - Optional set of enabled decision path IDs
  */
 export async function recalculateBalancesFrom(
   fromDate: Date,
-  toDate: Date
+  toDate: Date,
+  enabledDecisionPathIds?: Set<string>
 ): Promise<void> {
-  await calculateDailyBalances(fromDate, toDate);
+  await calculateDailyBalances(fromDate, toDate, enabledDecisionPathIds);
 }
 
 /**
  * Calculate balance for a single day (without persisting)
  * Useful for preview/validation
+ *
+ * @param date - The date to calculate for
+ * @param previousBalance - The balance from the previous day
+ * @param enabledDecisionPathIds - Optional set of enabled decision path IDs
  */
 export async function calculateBalanceForDay(
   date: Date,
-  previousBalance: number
+  previousBalance: number,
+  enabledDecisionPathIds?: Set<string>
 ): Promise<{ expectedBalance: number; events: any[] }> {
   const day = startOfDay(date);
   const events = await getProjectionEvents(day, day);
 
   let balance = previousBalance;
 
-  const relevantEvents = events.filter(
-    (e) => e.certainty !== CertaintyLevel.UNLIKELY
-  );
+  const relevantEvents = events.filter((e) => {
+    // Skip UNLIKELY events
+    if (e.certainty === CertaintyLevel.UNLIKELY) {
+      return false;
+    }
+
+    // Skip events with decision paths that are disabled
+    if (enabledDecisionPathIds && e.decisionPathId) {
+      if (!enabledDecisionPathIds.has(e.decisionPathId)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   for (const event of relevantEvents) {
     const eventValue = parseFloat(event.value.toString());
