@@ -97,10 +97,10 @@ export async function POST(request: NextRequest) {
     const body: CreateProjectionEventRequest = await request.json();
 
     // Validate required fields
-    if (!body.name || !body.value || !body.type || !body.certainty || !body.date) {
+    if (!body.name || !body.value || !body.type || !body.certainty || !body.date || !body.bankAccountId) {
       const response: ApiResponse = {
         success: false,
-        error: 'Missing required fields: name, value, type, certainty, date',
+        error: 'Missing required fields: name, value, type, certainty, date, bankAccountId',
       };
       return NextResponse.json(response, { status: 400 });
     }
@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
       payTo: body.payTo,
       paidBy: body.paidBy,
       date: new Date(body.date),
+      bankAccountId: body.bankAccountId,
       decisionPath: body.decisionPath,
     });
 
@@ -137,6 +138,8 @@ export async function POST(request: NextRequest) {
         payTo: event.payTo,
         paidBy: event.paidBy,
         date: event.date,
+        bankAccountId: event.bankAccountId,
+        bankAccount: event.bankAccount,
         decisionPath: event.decisionPath,
         recurringRuleId: event.recurringRuleId,
         createdAt: event.createdAt,

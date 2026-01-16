@@ -129,19 +129,37 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Data Views Card */}
-          <div className="bg-white rounded-lg shadow p-6" data-testid="data-views-card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Data Views</h2>
-            <p className="text-gray-600 mb-4">
-              Visualize your financial data with charts and analytics
-            </p>
-            <Link
-              href="/data-views"
-              className="inline-block px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              data-testid="data-views-link"
-            >
-              View Analytics
-            </Link>
+          {/* Right Column: Data Views & Bank Records */}
+          <div className="space-y-6">
+            {/* Data Views Card */}
+            <div className="bg-white rounded-lg shadow p-6" data-testid="data-views-card">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Data Views</h2>
+              <p className="text-gray-600 mb-4">
+                Visualize your financial data with charts and analytics
+              </p>
+              <Link
+                href="/data-views"
+                className="inline-block px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                data-testid="data-views-link"
+              >
+                View Analytics
+              </Link>
+            </div>
+
+            {/* Bank Records Card */}
+            <div className="bg-white rounded-lg shadow p-6" data-testid="bank-records-card">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Bank Records</h2>
+              <p className="text-gray-600 mb-4">
+                Import and manage actual bank statement data
+              </p>
+              <Link
+                href="/bank-records"
+                className="inline-block px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                data-testid="bank-records-link"
+              >
+                Manage Records
+              </Link>
+            </div>
           </div>
         </div>
 

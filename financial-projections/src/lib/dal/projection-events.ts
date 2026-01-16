@@ -73,11 +73,13 @@ export async function createProjectionEvent(input: CreateProjectionEventInput) {
       payTo: input.payTo,
       paidBy: input.paidBy,
       date: input.date,
+      bankAccountId: input.bankAccountId,
       decisionPathId,
       recurringRuleId: input.recurringRuleId,
     },
     include: {
       decisionPath: true,
+      bankAccount: true,
     },
   });
 }

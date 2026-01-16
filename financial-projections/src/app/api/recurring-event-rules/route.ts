@@ -14,6 +14,7 @@ interface CreateRecurringEventRuleRequest {
   certainty: CertaintyLevel;
   payTo?: string;
   paidBy?: string;
+  bankAccountId: string;
   decisionPath?: string;
   startDate: string; // ISO date string
   endDate: string; // ISO date string - required to prevent infinite event generation
@@ -75,13 +76,14 @@ export async function POST(request: NextRequest) {
       body.value === null ||
       !body.type ||
       !body.certainty ||
+      !body.bankAccountId ||
       !body.startDate ||
       !body.endDate ||
       !body.frequency
     ) {
       const response: ApiResponse = {
         success: false,
-        error: 'Missing required fields: name, value, type, certainty, startDate, endDate, frequency',
+        error: 'Missing required fields: name, value, type, certainty, bankAccountId, startDate, endDate, frequency',
       };
       return NextResponse.json(response, { status: 400 });
     }
@@ -132,6 +134,7 @@ export async function POST(request: NextRequest) {
       certainty: body.certainty,
       payTo: body.payTo,
       paidBy: body.paidBy,
+      bankAccountId: body.bankAccountId,
       decisionPath: body.decisionPath,
       startDate,
       endDate,
