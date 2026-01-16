@@ -49,6 +49,45 @@ enum DateFormat {
   US   // MM/DD/YYYY
 }
 
+enum TransactionType {
+  DEB   // Debit
+  DD    // Direct Debit
+  CHG   // Charge
+  CR    // Credit
+  SO    // Standing Order
+  BP    // Bill Payment
+  TFR   // Transfer
+  FPI   // Faster Payment In
+  FPO   // Faster Payment Out
+  ATM   // ATM Withdrawal
+  DEP   // Deposit
+  INT   // Interest
+  FEE   // Fee
+  OTHER // Other
+}
+
+enum BankProvider {
+  HALIFAX
+  LLOYDS
+  BANK_OF_SCOTLAND
+  BARCLAYS
+  HSBC
+  NATIONWIDE
+  SANTANDER
+  NATWEST
+  RBS
+  TSB
+  OTHER
+}
+
+enum UploadOperationStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
 model RecurringProjectionEventRule {
   id          String                @id @default(cuid())
   name        String
@@ -63,6 +102,10 @@ model RecurringProjectionEventRule {
   decisionPathId String?
   decisionPath   DecisionPath?     @relation(fields: [decisionPathId], references: [id], onDelete: SetNull)
 
+  // Bank account association (required)
+  bankAccountId String
+  bankAccount   BankAccount        @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+
   // Recurrence definition
   startDate   DateTime              @db.Date
   endDate     DateTime              @db.Date  // Required to prevent infinite event generation
@@ -75,6 +118,7 @@ model RecurringProjectionEventRule {
   updatedAt   DateTime              @updatedAt
 
   @@index([decisionPathId])
+  @@index([bankAccountId])
   @@index([startDate])
 }
 
@@ -93,6 +137,10 @@ model ProjectionEvent {
   decisionPathId String?
   decisionPath   DecisionPath? @relation(fields: [decisionPathId], references: [id], onDelete: SetNull)
 
+  // Bank account association (required)
+  bankAccountId String
+  bankAccount   BankAccount   @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+
   // Link to recurring rule (if generated from one)
   recurringRuleId String?
   recurringRule   RecurringProjectionEventRule? @relation(fields: [recurringRuleId], references: [id], onDelete: Cascade)
@@ -102,18 +150,26 @@ model ProjectionEvent {
 
   @@index([date])
   @@index([decisionPathId])
+  @@index([bankAccountId])
   @@index([recurringRuleId])
 }
 
 model DailyBalance {
-  id              String   @id @default(cuid())
-  date            DateTime @db.Date @unique
-  expectedBalance Decimal  @db.Decimal(10, 2)
-  actualBalance   Decimal? @db.Decimal(10, 2)  // User can set this
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id              String      @id @default(cuid())
+  date            DateTime    @db.Date
+  expectedBalance Decimal     @db.Decimal(10, 2)
+  actualBalance   Decimal?    @db.Decimal(10, 2)  // User can set this
 
+  // Bank account association (required)
+  bankAccountId   String
+  bankAccount     BankAccount  @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([date, bankAccountId])
   @@index([date])
+  @@index([bankAccountId])
 }
 
 // Track all unique decision paths in the system
@@ -157,4 +213,118 @@ model ScenarioSetDecisionPath {
   @@unique([scenarioSetId, decisionPathId])
   @@index([scenarioSetId])
   @@index([decisionPathId])
+}
+
+// Bank Account
+model BankAccount {
+  id            String       @id @default(cuid())
+  name          String
+  description   String?
+  sortCode      String       // Format: "XX-XX-XX"
+  accountNumber String       // Format: "XXXXXXXX"
+  provider      BankProvider @default(OTHER)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  projectionEvents      ProjectionEvent[]
+  recurringRules        RecurringProjectionEventRule[]
+  dailyBalances         DailyBalance[]
+  transactionRecords    TransactionRecord[]
+  uploadOperations      UploadOperation[]
+
+  @@unique([sortCode, accountNumber])
+  @@index([sortCode])
+}
+
+// Transaction Record (from CSV import)
+model TransactionRecord {
+  id                     String       @id @default(cuid())
+  transactionDate        DateTime     @db.Date
+  transactionType        TransactionType
+  transactionDescription String
+  debitAmount            Decimal?     @db.Decimal(10, 2)
+  creditAmount           Decimal?     @db.Decimal(10, 2)
+  balance                Decimal      @db.Decimal(10, 2)
+
+  // Bank account association (required)
+  bankAccountId          String
+  bankAccount            BankAccount  @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  // Enhancement fields (user-added metadata)
+  notes                  String?
+  spendingTypes          TransactionSpendingType[]
+
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@index([bankAccountId])
+  @@index([transactionDate])
+}
+
+// Spending Type (for categorization)
+model SpendingType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  color       String?  // Hex color code for UI display
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  transactions TransactionSpendingType[]
+}
+
+// Junction table: many-to-many between TransactionRecord and SpendingType
+model TransactionSpendingType {
+  id                  String            @id @default(cuid())
+  transactionRecordId String
+  spendingTypeId      String
+
+  transactionRecord   TransactionRecord @relation(fields: [transactionRecordId], references: [id], onDelete: Cascade)
+  spendingType        SpendingType      @relation(fields: [spendingTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionRecordId, spendingTypeId])
+  @@index([transactionRecordId])
+  @@index([spendingTypeId])
+}
+
+// Data Format (defines CSV format types)
+model DataFormat {
+  id          String   @id @default(cuid())
+  name        String   @unique  // e.g., "HalifaxAccountExportCSV"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  uploadOperations UploadOperation[]
+}
+
+// Upload Operation (tracks CSV uploads)
+model UploadOperation {
+  id              String                 @id @default(cuid())
+  filename        String
+  uploadDateTime  DateTime               @default(now())
+  fileType        String                 @default(".csv")  // e.g., ".csv"
+  operationStatus UploadOperationStatus  @default(PENDING)
+  fileSize        Int?                   // File size in bytes
+  numberOfRecords Int?                   // Number of records processed
+  fileS3Location  String?                // Future: AWS S3 location
+  errorMessage    String?                // Store error details if FAILED
+
+  // Relations
+  dataFormatId    String
+  dataFormat      DataFormat             @relation(fields: [dataFormatId], references: [id], onDelete: Restrict)
+
+  bankAccountId   String
+  bankAccount     BankAccount            @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([bankAccountId])
+  @@index([dataFormatId])
+  @@index([operationStatus])
+  @@index([uploadDateTime])
 }
