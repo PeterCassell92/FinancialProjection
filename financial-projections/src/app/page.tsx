@@ -86,14 +86,14 @@ export default function Dashboard() {
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Monthly Projections Card */}
-          <div className="bg-white rounded-lg shadow p-6" data-testid="monthly-projections-card">
+          <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6" data-testid="monthly-projections-card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Monthly Projections</h2>
+              <h2 className="text-xl font-semibold text-slate-900">Monthly Projections</h2>
               <div className="flex gap-2">
                 {monthOffset > 0 && (
                   <button
                     onClick={handleShowFirstSix}
-                    className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded"
+                    className="text-sm px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-md transition-colors"
                     data-testid="show-first-six-button"
                   >
                     First 6
@@ -102,7 +102,7 @@ export default function Dashboard() {
                 {monthOffset === 0 && (
                   <button
                     onClick={handleShowNextSix}
-                    className="text-sm px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded"
+                    className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md transition-colors font-medium"
                     data-testid="show-next-six-button"
                   >
                     Next 6 →
@@ -110,7 +110,7 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-            <p className="text-gray-600 mb-4">
+            <p className="text-slate-600 mb-4 text-sm">
               {monthOffset === 0
                 ? 'Viewing months 1-6'
                 : 'Viewing months 7-12'}
@@ -120,10 +120,10 @@ export default function Dashboard() {
                 <Link
                   key={month.path}
                   href={month.path}
-                  className="block px-4 py-3 bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors"
+                  className="block px-4 py-3 bg-slate-50 hover:bg-blue-50 border border-slate-100 hover:border-blue-200 rounded-md transition-all"
                   data-testid={`month-link__${index}`}
                 >
-                  <span className="text-gray-900 font-medium">{month.label}</span>
+                  <span className="text-slate-900 font-medium">{month.label}</span>
                 </Link>
               ))}
             </div>
@@ -132,14 +132,14 @@ export default function Dashboard() {
           {/* Right Column: Data Views & Bank Records */}
           <div className="space-y-6">
             {/* Data Views Card */}
-            <div className="bg-white rounded-lg shadow p-6" data-testid="data-views-card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Data Views</h2>
-              <p className="text-gray-600 mb-4">
+            <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6" data-testid="data-views-card">
+              <h2 className="text-xl font-semibold text-slate-900 mb-4">Data Views</h2>
+              <p className="text-slate-600 mb-4">
                 Visualize your financial data with charts and analytics
               </p>
               <Link
                 href="/data-views"
-                className="inline-block px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
                 data-testid="data-views-link"
               >
                 View Analytics
@@ -147,41 +147,50 @@ export default function Dashboard() {
             </div>
 
             {/* Bank Records Card */}
-            <div className="bg-white rounded-lg shadow p-6" data-testid="bank-records-card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Bank Records</h2>
-              <p className="text-gray-600 mb-4">
+            <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6" data-testid="bank-records-card">
+              <h2 className="text-xl font-semibold text-slate-900 mb-4">Bank Records</h2>
+              <p className="text-slate-600 mb-6">
                 Import and manage actual bank statement data
               </p>
-              <Link
-                href="/bank-records"
-                className="inline-block px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                data-testid="bank-records-link"
-              >
-                Manage Records
-              </Link>
+              <div className="space-y-3">
+                <Link
+                  href="/bank-records"
+                  className="block w-full text-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                  data-testid="manage-transaction-records-link"
+                >
+                  Manage Transaction Records
+                </Link>
+                <Link
+                  href="/bank-records/transactions"
+                  className="block w-full text-center px-6 py-3 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors border border-slate-300 font-medium"
+                  data-testid="view-transaction-records-link"
+                >
+                  View Transaction Records
+                </Link>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Info Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-blue-50 rounded-lg p-6" data-testid="info-card__projections">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-lg p-6 shadow-sm" data-testid="info-card__projections">
             <h3 className="text-lg font-semibold text-blue-900 mb-2">Projection Events</h3>
-            <p className="text-blue-700 text-sm">
+            <p className="text-blue-800 text-sm leading-relaxed">
               Track expected expenses and incoming payments with different certainty levels
             </p>
           </div>
 
-          <div className="bg-green-50 rounded-lg p-6" data-testid="info-card__balance">
-            <h3 className="text-lg font-semibold text-green-900 mb-2">Daily Balances</h3>
-            <p className="text-green-700 text-sm">
+          <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 border border-slate-200 rounded-lg p-6 shadow-sm" data-testid="info-card__balance">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Daily Balances</h3>
+            <p className="text-slate-700 text-sm leading-relaxed">
               Set actual balances and see calculated projections for each day
             </p>
           </div>
 
-          <div className="bg-purple-50 rounded-lg p-6" data-testid="info-card__recurring">
-            <h3 className="text-lg font-semibold text-purple-900 mb-2">Recurring Events</h3>
-            <p className="text-purple-700 text-sm">
+          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-200 rounded-lg p-6 shadow-sm" data-testid="info-card__recurring">
+            <h3 className="text-lg font-semibold text-indigo-900 mb-2">Recurring Events</h3>
+            <p className="text-indigo-800 text-sm leading-relaxed">
               Create recurring events that repeat monthly or on specific dates
             </p>
           </div>

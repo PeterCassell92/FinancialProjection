@@ -33,6 +33,7 @@ export async function GET() {
         initialBalanceDate: settings.initialBalanceDate,
         currency: settings.currency,
         dateFormat: settings.dateFormat,
+        defaultBankAccountId: settings.defaultBankAccountId,
         createdAt: settings.createdAt,
         updatedAt: settings.updatedAt,
       },
@@ -90,12 +91,20 @@ export async function PUT(request: NextRequest) {
         initialBalanceDate: effectiveDate,
         currency: body.currency as Currency | undefined,
         dateFormat: body.dateFormat as DateFormat | undefined,
+        defaultBankAccountId: body.defaultBankAccountId,
       }
     );
 
     // Set the actual balance for the initial balance date
     // This creates or updates the daily balance entry with the actual balance
-    await setActualBalance(effectiveDate, body.initialBankBalance);
+    // Use the default bank account ID from the updated settings
+    if (updatedSettings.defaultBankAccountId) {
+      await setActualBalance(
+        effectiveDate,
+        updatedSettings.defaultBankAccountId,
+        body.initialBankBalance
+      );
+    }
 
     const response: ApiResponse = {
       success: true,
@@ -107,6 +116,7 @@ export async function PUT(request: NextRequest) {
         initialBalanceDate: updatedSettings.initialBalanceDate,
         currency: updatedSettings.currency,
         dateFormat: updatedSettings.dateFormat,
+        defaultBankAccountId: updatedSettings.defaultBankAccountId,
         createdAt: updatedSettings.createdAt,
         updatedAt: updatedSettings.updatedAt,
       },
@@ -157,6 +167,7 @@ export async function PATCH(request: NextRequest) {
     const updatedSettings = await updateSettings(currentSettings.id, {
       currency: body.currency as Currency | undefined,
       dateFormat: body.dateFormat as DateFormat | undefined,
+      defaultBankAccountId: body.defaultBankAccountId,
     });
 
     const response: ApiResponse = {
@@ -167,6 +178,7 @@ export async function PATCH(request: NextRequest) {
         initialBalanceDate: updatedSettings.initialBalanceDate,
         currency: updatedSettings.currency,
         dateFormat: updatedSettings.dateFormat,
+        defaultBankAccountId: updatedSettings.defaultBankAccountId,
         createdAt: updatedSettings.createdAt,
         updatedAt: updatedSettings.updatedAt,
       },

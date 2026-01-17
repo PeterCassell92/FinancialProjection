@@ -30,6 +30,7 @@ interface MonthlyData {
 
 export default function DataViews() {
   const currency = useAppSelector((state) => state.settings.currency);
+  const defaultBankAccountId = useAppSelector((state) => state.settings.defaultBankAccountId);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<ProjectionEvent[]>([]);
   const [balances, setBalances] = useState<DailyBalance[]>([]);
@@ -52,17 +53,20 @@ export default function DataViews() {
       );
       const eventsData = await eventsResponse.json();
 
-      const balancesResponse = await fetch(
-        `/api/daily-balance?startDate=${format(startDate, 'yyyy-MM-dd')}&endDate=${format(endDate, 'yyyy-MM-dd')}`
-      );
-      const balancesData = await balancesResponse.json();
-
       if (eventsData.success) {
         setEvents(eventsData.data || []);
       }
 
-      if (balancesData.success) {
-        setBalances(balancesData.data || []);
+      // Fetch balances for the default bank account
+      if (defaultBankAccountId) {
+        const balancesResponse = await fetch(
+          `/api/daily-balance?startDate=${format(startDate, 'yyyy-MM-dd')}&endDate=${format(endDate, 'yyyy-MM-dd')}&bankAccountId=${defaultBankAccountId}`
+        );
+        const balancesData = await balancesResponse.json();
+
+        if (balancesData.success) {
+          setBalances(balancesData.data || []);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch data:', err);

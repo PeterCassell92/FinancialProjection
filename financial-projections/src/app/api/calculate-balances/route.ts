@@ -9,16 +9,17 @@ import { ApiResponse, CalculateBalancesRequest } from '@/types';
  * Body can include:
  * - startDate: string (required)
  * - endDate: string (required)
+ * - bankAccountId: string (required)
  * - enabledDecisionPathIds: string[] (optional) - IDs of decision paths that are enabled
  */
 export async function POST(request: NextRequest) {
   try {
-    const body: CalculateBalancesRequest & { enabledDecisionPathIds?: string[] } = await request.json();
+    const body: CalculateBalancesRequest & { enabledDecisionPathIds?: string[], bankAccountId: string } = await request.json();
 
-    if (!body.startDate || !body.endDate) {
+    if (!body.startDate || !body.endDate || !body.bankAccountId) {
       const response: ApiResponse = {
         success: false,
-        error: 'startDate and endDate are required',
+        error: 'startDate, endDate, and bankAccountId are required',
       };
       return NextResponse.json(response, { status: 400 });
     }
@@ -48,8 +49,8 @@ export async function POST(request: NextRequest) {
       ? new Set(body.enabledDecisionPathIds)
       : undefined;
 
-    // Calculate balances with decision path filtering
-    await calculateDailyBalances(startDate, endDate, enabledDecisionPathIds);
+    // Calculate balances with decision path filtering for the specified bank account
+    await calculateDailyBalances(startDate, endDate, body.bankAccountId, enabledDecisionPathIds);
 
     const response: ApiResponse = {
       success: true,

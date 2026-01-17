@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 
 export interface CreateDailyBalanceInput {
   date: Date;
+  bankAccountId: string;
   expectedBalance: number;
   actualBalance?: number;
 }
@@ -12,24 +13,34 @@ export interface UpdateDailyBalanceInput {
 }
 
 /**
- * Get daily balance for a specific date
+ * Get daily balance for a specific date and bank account
  */
-export async function getDailyBalance(date: Date) {
+export async function getDailyBalance(date: Date, bankAccountId: string) {
   return await prisma.dailyBalance.findUnique({
-    where: { date },
+    where: {
+      date_bankAccountId: {
+        date,
+        bankAccountId,
+      },
+    },
   });
 }
 
 /**
- * Get daily balances for a date range
+ * Get daily balances for a date range and bank account
  */
-export async function getDailyBalances(startDate: Date, endDate: Date) {
+export async function getDailyBalances(
+  startDate: Date,
+  endDate: Date,
+  bankAccountId?: string
+) {
   return await prisma.dailyBalance.findMany({
     where: {
       date: {
         gte: startDate,
         lte: endDate,
       },
+      ...(bankAccountId && { bankAccountId }),
     },
     orderBy: {
       date: 'asc',
@@ -44,6 +55,7 @@ export async function createDailyBalance(input: CreateDailyBalanceInput) {
   return await prisma.dailyBalance.create({
     data: {
       date: input.date,
+      bankAccountId: input.bankAccountId,
       expectedBalance: input.expectedBalance,
       actualBalance: input.actualBalance ?? null,
     },
@@ -55,9 +67,15 @@ export async function createDailyBalance(input: CreateDailyBalanceInput) {
  */
 export async function upsertDailyBalance(input: CreateDailyBalanceInput) {
   return await prisma.dailyBalance.upsert({
-    where: { date: input.date },
+    where: {
+      date_bankAccountId: {
+        date: input.date,
+        bankAccountId: input.bankAccountId,
+      },
+    },
     create: {
       date: input.date,
+      bankAccountId: input.bankAccountId,
       expectedBalance: input.expectedBalance,
       actualBalance: input.actualBalance ?? null,
     },
@@ -73,6 +91,7 @@ export async function upsertDailyBalance(input: CreateDailyBalanceInput) {
  */
 export async function updateDailyBalance(
   date: Date,
+  bankAccountId: string,
   input: UpdateDailyBalanceInput
 ) {
   const data: any = {};
@@ -88,19 +107,34 @@ export async function updateDailyBalance(
   }
 
   return await prisma.dailyBalance.update({
-    where: { date },
+    where: {
+      date_bankAccountId: {
+        date,
+        bankAccountId,
+      },
+    },
     data,
   });
 }
 
 /**
- * Set actual balance for a specific date
+ * Set actual balance for a specific date and bank account
  */
-export async function setActualBalance(date: Date, actualBalance: number) {
+export async function setActualBalance(
+  date: Date,
+  bankAccountId: string,
+  actualBalance: number
+) {
   return await prisma.dailyBalance.upsert({
-    where: { date },
+    where: {
+      date_bankAccountId: {
+        date,
+        bankAccountId,
+      },
+    },
     create: {
       date,
+      bankAccountId,
       expectedBalance: 0, // Will be recalculated
       actualBalance,
     },
@@ -111,11 +145,16 @@ export async function setActualBalance(date: Date, actualBalance: number) {
 }
 
 /**
- * Clear actual balance for a specific date
+ * Clear actual balance for a specific date and bank account
  */
-export async function clearActualBalance(date: Date) {
+export async function clearActualBalance(date: Date, bankAccountId: string) {
   return await prisma.dailyBalance.update({
-    where: { date },
+    where: {
+      date_bankAccountId: {
+        date,
+        bankAccountId,
+      },
+    },
     data: {
       actualBalance: null,
     },
@@ -125,18 +164,24 @@ export async function clearActualBalance(date: Date) {
 /**
  * Delete daily balance record
  */
-export async function deleteDailyBalance(date: Date) {
+export async function deleteDailyBalance(date: Date, bankAccountId: string) {
   return await prisma.dailyBalance.delete({
-    where: { date },
+    where: {
+      date_bankAccountId: {
+        date,
+        bankAccountId,
+      },
+    },
   });
 }
 
 /**
- * Delete all daily balances in a date range
+ * Delete all daily balances in a date range for a specific bank account
  */
 export async function deleteDailyBalancesInRange(
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  bankAccountId?: string
 ) {
   return await prisma.dailyBalance.deleteMany({
     where: {
@@ -144,14 +189,18 @@ export async function deleteDailyBalancesInRange(
         gte: startDate,
         lte: endDate,
       },
+      ...(bankAccountId && { bankAccountId }),
     },
   });
 }
 
 /**
- * Get the most recent actual balance before a given date
+ * Get the most recent actual balance before a given date for a specific bank account
  */
-export async function getMostRecentActualBalance(beforeDate: Date) {
+export async function getMostRecentActualBalance(
+  beforeDate: Date,
+  bankAccountId?: string
+) {
   return await prisma.dailyBalance.findFirst({
     where: {
       date: {
@@ -160,6 +209,7 @@ export async function getMostRecentActualBalance(beforeDate: Date) {
       actualBalance: {
         not: null,
       },
+      ...(bankAccountId && { bankAccountId }),
     },
     orderBy: {
       date: 'desc',
@@ -168,9 +218,12 @@ export async function getMostRecentActualBalance(beforeDate: Date) {
 }
 
 /**
- * Get the most recent actual balance on or before a given date
+ * Get the most recent actual balance on or before a given date for a specific bank account
  */
-export async function getMostRecentActualBalanceOnOrBefore(onOrBeforeDate: Date) {
+export async function getMostRecentActualBalanceOnOrBefore(
+  onOrBeforeDate: Date,
+  bankAccountId?: string
+) {
   return await prisma.dailyBalance.findFirst({
     where: {
       date: {
@@ -179,6 +232,7 @@ export async function getMostRecentActualBalanceOnOrBefore(onOrBeforeDate: Date)
       actualBalance: {
         not: null,
       },
+      ...(bankAccountId && { bankAccountId }),
     },
     orderBy: {
       date: 'desc',

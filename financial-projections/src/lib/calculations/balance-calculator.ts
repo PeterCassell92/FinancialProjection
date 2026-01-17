@@ -20,12 +20,13 @@ import { getOrCreateSettings } from '@/lib/dal/settings';
  * 4. If no actual balance is found, fall back to the initial bank balance and its date from settings
  */
 async function findStartingBalanceAndDate(
-  startDate: Date
+  startDate: Date,
+  bankAccountId: string
 ): Promise<{ balance: number; date: Date }> {
   const start = startOfDay(startDate);
 
-  // Look for the most recent actual balance on or before the start date
-  const mostRecentActual = await getMostRecentActualBalanceOnOrBefore(start);
+  // Look for the most recent actual balance on or before the start date for this bank account
+  const mostRecentActual = await getMostRecentActualBalanceOnOrBefore(start, bankAccountId);
 
   if (mostRecentActual && mostRecentActual.actualBalance !== null) {
     // Found an actual balance - use it as our starting point
@@ -55,6 +56,7 @@ async function findStartingBalanceAndDate(
  *
  * @param startDate - Start of the date range
  * @param endDate - End of the date range
+ * @param bankAccountId - The bank account to calculate balances for
  * @param enabledDecisionPathIds - Optional set of decision path IDs that are enabled.
  *                                  If provided, events with decision paths not in this set will be excluded.
  *                                  If not provided, all events are included.
@@ -62,6 +64,7 @@ async function findStartingBalanceAndDate(
 export async function calculateDailyBalances(
   startDate: Date,
   endDate: Date,
+  bankAccountId: string,
   enabledDecisionPathIds?: Set<string>
 ): Promise<void> {
   // Normalize dates to start of day
@@ -69,15 +72,18 @@ export async function calculateDailyBalances(
   const end = startOfDay(endDate);
 
   // Find the correct starting balance and date
-  const { balance: startingBalance, date: startingDate } = await findStartingBalanceAndDate(start);
+  const { balance: startingBalance, date: startingDate } = await findStartingBalanceAndDate(start, bankAccountId);
 
   // Determine the actual calculation range
   // We need to calculate from the startingDate (where we have a known balance)
   // through to the endDate (the end of the requested range)
   const calculationStart = isBefore(startingDate, start) ? startingDate : start;
 
-  // Get all events from the calculation start to the end
-  const events = await getProjectionEvents(calculationStart, end);
+  // Get all events from the calculation start to the end for this bank account
+  const allEvents = await getProjectionEvents(calculationStart, end);
+
+  // Filter events to only include those for this bank account
+  const events = allEvents.filter(event => event.bankAccountId === bankAccountId);
 
   // Group events by date
   const eventsByDate = new Map<string, typeof events>();
@@ -89,8 +95,8 @@ export async function calculateDailyBalances(
     eventsByDate.get(dateKey)!.push(event);
   });
 
-  // Get existing daily balances to check for actual balances
-  const existingDailyBalances = await getDailyBalances(calculationStart, end);
+  // Get existing daily balances to check for actual balances for this bank account
+  const existingDailyBalances = await getDailyBalances(calculationStart, end, bankAccountId);
   const actualBalanceMap = new Map<string, number>();
   existingDailyBalances.forEach((balance) => {
     if (balance.actualBalance !== null && balance.actualBalance !== undefined) {
@@ -115,6 +121,7 @@ export async function calculateDailyBalances(
     if (isSameDay(day, startingDate) && actualBalance !== undefined) {
       balancesToUpsert.push({
         date: day,
+        bankAccountId,
         expectedBalance: actualBalance, // Expected equals actual when we start from actual
         actualBalance,
       });
@@ -156,6 +163,7 @@ export async function calculateDailyBalances(
 
     balancesToUpsert.push({
       date: day,
+      bankAccountId,
       expectedBalance,
       actualBalance,
     });
@@ -188,14 +196,16 @@ export async function calculateDailyBalances(
  *
  * @param fromDate - Start date for recalculation
  * @param toDate - End date for recalculation
+ * @param bankAccountId - The bank account to recalculate balances for
  * @param enabledDecisionPathIds - Optional set of enabled decision path IDs
  */
 export async function recalculateBalancesFrom(
   fromDate: Date,
   toDate: Date,
+  bankAccountId: string,
   enabledDecisionPathIds?: Set<string>
 ): Promise<void> {
-  await calculateDailyBalances(fromDate, toDate, enabledDecisionPathIds);
+  await calculateDailyBalances(fromDate, toDate, bankAccountId, enabledDecisionPathIds);
 }
 
 /**
@@ -204,15 +214,20 @@ export async function recalculateBalancesFrom(
  *
  * @param date - The date to calculate for
  * @param previousBalance - The balance from the previous day
+ * @param bankAccountId - The bank account to calculate for
  * @param enabledDecisionPathIds - Optional set of enabled decision path IDs
  */
 export async function calculateBalanceForDay(
   date: Date,
   previousBalance: number,
+  bankAccountId: string,
   enabledDecisionPathIds?: Set<string>
 ): Promise<{ expectedBalance: number; events: any[] }> {
   const day = startOfDay(date);
-  const events = await getProjectionEvents(day, day);
+  const allEvents = await getProjectionEvents(day, day);
+
+  // Filter events to only include those for this bank account
+  const events = allEvents.filter(event => event.bankAccountId === bankAccountId);
 
   let balance = previousBalance;
 

@@ -53,6 +53,7 @@ export default function DayDetailModal({
   onRefresh,
 }: DayDetailModalProps) {
   const currency = useAppSelector((state) => state.settings.currency);
+  const defaultBankAccountId = useAppSelector((state) => state.settings.defaultBankAccountId);
   const [showEventForm, setShowEventForm] = useState(false);
   const [recurringMode, setRecurringMode] = useState(false);
   const [settingActualBalance, setSettingActualBalance] = useState(false);
@@ -67,6 +68,11 @@ export default function DayDetailModal({
       return;
     }
 
+    if (!defaultBankAccountId) {
+      alert('No default bank account set. Please configure in settings.');
+      return;
+    }
+
     try {
       const response = await fetch('/api/daily-balance', {
         method: 'PUT',
@@ -74,6 +80,7 @@ export default function DayDetailModal({
         body: JSON.stringify({
           date: format(date, 'yyyy-MM-dd'),
           actualBalance: value,
+          bankAccountId: defaultBankAccountId,
         }),
       });
 
@@ -93,9 +100,14 @@ export default function DayDetailModal({
   const handleClearActualBalance = async () => {
     if (!confirm('Are you sure you want to clear the actual balance?')) return;
 
+    if (!defaultBankAccountId) {
+      alert('No default bank account set. Please configure in settings.');
+      return;
+    }
+
     try {
       const response = await fetch(
-        `/api/daily-balance?date=${format(date, 'yyyy-MM-dd')}`,
+        `/api/daily-balance?date=${format(date, 'yyyy-MM-dd')}&bankAccountId=${defaultBankAccountId}`,
         { method: 'DELETE' }
       );
 

@@ -10,7 +10,7 @@ import { ApiResponse, SetActualBalanceRequest } from '@/types';
 /**
  * GET /api/daily-balance
  * Get daily balances for a date range or specific date
- * Query params: startDate, endDate OR date
+ * Query params: startDate, endDate, bankAccountId OR date, bankAccountId
  */
 export async function GET(request: NextRequest) {
   try {
@@ -18,16 +18,25 @@ export async function GET(request: NextRequest) {
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
     const dateParam = searchParams.get('date');
+    const bankAccountId = searchParams.get('bankAccountId');
+
+    if (!bankAccountId) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'bankAccountId query parameter is required',
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
 
     if (dateParam) {
-      // Get balance for a specific date
+      // Get balance for a specific date and bank account
       const date = new Date(dateParam);
-      const balance = await getDailyBalance(date);
+      const balance = await getDailyBalance(date, bankAccountId);
 
       if (!balance) {
         const response: ApiResponse = {
           success: false,
-          error: 'Daily balance not found for this date',
+          error: 'Daily balance not found for this date and bank account',
         };
         return NextResponse.json(response, { status: 404 });
       }
@@ -60,7 +69,7 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(startDateParam);
     const endDate = new Date(endDateParam);
 
-    const balances = await getDailyBalances(startDate, endDate);
+    const balances = await getDailyBalances(startDate, endDate, bankAccountId);
 
     const response: ApiResponse = {
       success: true,
@@ -89,30 +98,30 @@ export async function GET(request: NextRequest) {
 
 /**
  * PUT /api/daily-balance
- * Set actual balance for a specific date
+ * Set actual balance for a specific date and bank account
  */
 export async function PUT(request: NextRequest) {
   try {
-    const body: SetActualBalanceRequest = await request.json();
+    const body: SetActualBalanceRequest & { bankAccountId: string } = await request.json();
 
-    if (!body.date || typeof body.actualBalance !== 'number') {
+    if (!body.date || typeof body.actualBalance !== 'number' || !body.bankAccountId) {
       const response: ApiResponse = {
         success: false,
-        error: 'date and actualBalance are required',
+        error: 'date, actualBalance, and bankAccountId are required',
       };
       return NextResponse.json(response, { status: 400 });
     }
 
     const date = new Date(body.date);
-    const balance = await setActualBalance(date, body.actualBalance);
+    const balance = await setActualBalance(date, body.bankAccountId, body.actualBalance);
 
-    // Recalculate balances from the next day forward (6 months)
+    // Recalculate balances from the next day forward (6 months) for this bank account
     const { addDays, addMonths } = await import('date-fns');
     const { recalculateBalancesFrom } = await import('@/lib/calculations/balance-calculator');
 
     const nextDay = addDays(date, 1);
     const endDate = addMonths(nextDay, 6);
-    await recalculateBalancesFrom(nextDay, endDate);
+    await recalculateBalancesFrom(nextDay, endDate, body.bankAccountId);
 
     const response: ApiResponse = {
       success: true,
@@ -142,31 +151,32 @@ export async function PUT(request: NextRequest) {
 
 /**
  * DELETE /api/daily-balance
- * Clear actual balance for a specific date
- * Query param: date
+ * Clear actual balance for a specific date and bank account
+ * Query params: date, bankAccountId
  */
 export async function DELETE(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const dateParam = searchParams.get('date');
+    const bankAccountId = searchParams.get('bankAccountId');
 
-    if (!dateParam) {
+    if (!dateParam || !bankAccountId) {
       const response: ApiResponse = {
         success: false,
-        error: 'date query parameter is required',
+        error: 'date and bankAccountId query parameters are required',
       };
       return NextResponse.json(response, { status: 400 });
     }
 
     const date = new Date(dateParam);
-    await clearActualBalance(date);
+    await clearActualBalance(date, bankAccountId);
 
-    // Recalculate balances from this day forward (6 months)
+    // Recalculate balances from this day forward (6 months) for this bank account
     const { addMonths } = await import('date-fns');
     const { recalculateBalancesFrom } = await import('@/lib/calculations/balance-calculator');
 
     const endDate = addMonths(date, 6);
-    await recalculateBalancesFrom(date, endDate);
+    await recalculateBalancesFrom(date, endDate, bankAccountId);
 
     const response: ApiResponse = {
       success: true,

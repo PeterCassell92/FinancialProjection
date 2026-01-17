@@ -49,6 +49,7 @@ export default function MonthlyProjection() {
   const router = useRouter();
   const monthId = params.monthId as string;
   const currency = useAppSelector((state) => state.settings.currency);
+  const defaultBankAccountId = useAppSelector((state) => state.settings.defaultBankAccountId);
   const currentDecisionPathStates = useAppSelector((state) => state.scenario.currentDecisionPathStates);
 
   const [loading, setLoading] = useState(true);
@@ -74,26 +75,32 @@ export default function MonthlyProjection() {
   }, [currentDecisionPathStates]);
 
   const recalculateBalances = async () => {
+    if (!defaultBankAccountId) {
+      console.error('No default bank account set');
+      return;
+    }
+
     try {
       // Get enabled decision path IDs
       const enabledDecisionPathIds = Object.entries(currentDecisionPathStates)
         .filter(([_, enabled]) => enabled)
         .map(([id, _]) => id);
 
-      // Trigger balance recalculation
+      // Trigger balance recalculation for the default bank account
       await fetch('/api/calculate-balances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           startDate: format(monthStart, 'yyyy-MM-dd'),
           endDate: format(monthEnd, 'yyyy-MM-dd'),
+          bankAccountId: defaultBankAccountId,
           enabledDecisionPathIds,
         }),
       });
 
       // Refresh balances
       const balancesResponse = await fetch(
-        `/api/daily-balance?startDate=${format(monthStart, 'yyyy-MM-dd')}&endDate=${format(monthEnd, 'yyyy-MM-dd')}`
+        `/api/daily-balance?startDate=${format(monthStart, 'yyyy-MM-dd')}&endDate=${format(monthEnd, 'yyyy-MM-dd')}&bankAccountId=${defaultBankAccountId}`
       );
       const balancesData = await balancesResponse.json();
 
@@ -114,18 +121,21 @@ export default function MonthlyProjection() {
       );
       const eventsData = await eventsResponse.json();
 
-      // Fetch balances for this month
-      const balancesResponse = await fetch(
-        `/api/daily-balance?startDate=${format(monthStart, 'yyyy-MM-dd')}&endDate=${format(monthEnd, 'yyyy-MM-dd')}`
-      );
-      const balancesData = await balancesResponse.json();
-
+      // Set events data
       if (eventsData.success) {
         setEvents(eventsData.data || []);
       }
 
-      if (balancesData.success) {
-        setBalances(balancesData.data || []);
+      // Fetch balances for this month (only if we have a default bank account)
+      if (defaultBankAccountId) {
+        const balancesResponse = await fetch(
+          `/api/daily-balance?startDate=${format(monthStart, 'yyyy-MM-dd')}&endDate=${format(monthEnd, 'yyyy-MM-dd')}&bankAccountId=${defaultBankAccountId}`
+        );
+        const balancesData = await balancesResponse.json();
+
+        if (balancesData.success) {
+          setBalances(balancesData.data || []);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch data:', err);
