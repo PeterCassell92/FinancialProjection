@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
+import SpendingTypeManagement from '@/components/SpendingTypeManagement';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Pencil, Save, X, Trash2 } from 'lucide-react';
 
 interface SpendingType {
   id: string;
@@ -59,6 +61,7 @@ export default function TransactionsPage() {
   const [editNotes, setEditNotes] = useState<string>('');
   const [editSpendingTypes, setEditSpendingTypes] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -112,6 +115,18 @@ export default function TransactionsPage() {
     }
   };
 
+  const fetchSpendingTypes = async () => {
+    try {
+      const typesResponse = await fetch('/api/spending-types');
+      const typesData = await typesResponse.json();
+      if (typesData.success) {
+        setSpendingTypes(typesData.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch spending types:', error);
+    }
+  };
+
   const handleEdit = (transaction: TransactionRecord) => {
     setEditingTransaction(transaction.id);
     setEditNotes(transaction.notes || '');
@@ -124,6 +139,35 @@ export default function TransactionsPage() {
     setEditSpendingTypes([]);
   };
 
+  const handleDelete = async (transactionId: string) => {
+    if (!confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(transactionId);
+    try {
+      const response = await fetch(`/api/transaction-records?id=${transactionId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh transactions from server
+        if (selectedBankAccount) {
+          await fetchTransactions(selectedBankAccount);
+        }
+      } else {
+        alert(data.error || 'Failed to delete transaction');
+      }
+    } catch (error) {
+      console.error('Failed to delete transaction:', error);
+      alert('Failed to delete transaction');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const handleSave = async (transactionId: string) => {
     setSaving(true);
     try {
@@ -131,7 +175,7 @@ export default function TransactionsPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          transactionId,
+          id: transactionId,
           notes: editNotes || undefined,
           spendingTypeIds: editSpendingTypes.length > 0 ? editSpendingTypes : undefined,
         }),
@@ -140,20 +184,10 @@ export default function TransactionsPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Update local state
-        setTransactions((prev) =>
-          prev.map((t) =>
-            t.id === transactionId
-              ? {
-                  ...t,
-                  notes: editNotes || null,
-                  spendingTypes: spendingTypes.filter((st) =>
-                    editSpendingTypes.includes(st.id)
-                  ),
-                }
-              : t
-          )
-        );
+        // Refresh transactions from server to ensure consistency
+        if (selectedBankAccount) {
+          await fetchTransactions(selectedBankAccount);
+        }
         handleCancelEdit();
       } else {
         alert(data.error || 'Failed to update transaction');
@@ -177,9 +211,9 @@ export default function TransactionsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header onOpenSettings={() => {}} onOpenInfo={() => {}} />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-[1600px] mx-auto px-4 py-8">
         {/* Page Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-2">
@@ -198,6 +232,11 @@ export default function TransactionsPage() {
             View and enhance imported bank transactions with notes and spending categories
           </p>
         </div>
+
+        {/* Two-column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main content - transactions table */}
+          <div className="lg:col-span-2">{/* Transactions content will go here */}
 
         {/* Bank Account Filter */}
         <div className="bg-white rounded-lg shadow p-6 mb-8" data-testid="filter-section">
@@ -242,7 +281,7 @@ export default function TransactionsPage() {
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Balance</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Spending Types</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Notes</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Actions</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 sticky right-0 bg-gray-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -341,33 +380,48 @@ export default function TransactionsPage() {
                             <span className="text-gray-400">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        <td className="px-4 py-3 text-sm whitespace-nowrap sticky right-0 bg-white shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
                           {editingTransaction === transaction.id ? (
-                            <div className="flex gap-2">
+                            <div className="flex gap-1">
                               <Button
                                 size="sm"
                                 onClick={() => handleSave(transaction.id)}
                                 disabled={saving}
+                                title="Save changes"
                               >
-                                {saving ? 'Saving...' : 'Save'}
+                                <Save className="h-4 w-4" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={handleCancelEdit}
                                 disabled={saving}
+                                title="Cancel editing"
                               >
-                                Cancel
+                                <X className="h-4 w-4" />
                               </Button>
                             </div>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEdit(transaction)}
-                            >
-                              Edit
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEdit(transaction)}
+                                disabled={deleting === transaction.id}
+                                title="Edit transaction"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDelete(transaction.id)}
+                                disabled={deleting === transaction.id}
+                                title="Delete transaction"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -386,6 +440,16 @@ export default function TransactionsPage() {
             </p>
           </div>
         )}
+          </div>
+
+          {/* Sidebar - Spending Type Management */}
+          <div className="lg:col-span-1">
+            <SpendingTypeManagement
+              spendingTypes={spendingTypes}
+              onSpendingTypeCreated={fetchSpendingTypes}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
