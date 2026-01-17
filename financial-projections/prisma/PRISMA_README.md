@@ -322,8 +322,8 @@ DATABASE_URL="postgresql://user:password@localhost:5432/financial_projections?sc
 ### Seed Account
 
 The project includes a seed bank account with ID `seed_bank_account_001`:
-- Sort Code: `REDACTED`
-- Account Number: `REDACTED`
+- Sort Code: `22-33-44`
+- Account Number: `12345678`
 - Provider: `HALIFAX`
 
 This is used as the default for existing records when adding bank account foreign keys.
