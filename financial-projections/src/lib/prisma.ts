@@ -25,5 +25,8 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
+// Default export for convenience
+export default prisma;
+
 // Re-export Prisma enums for convenience
 export { EventType, CertaintyLevel, RecurrenceFrequency } from '@prisma/client';

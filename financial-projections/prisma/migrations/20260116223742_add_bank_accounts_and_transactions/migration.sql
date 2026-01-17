@@ -56,10 +56,6 @@ CREATE TABLE "TransactionSpendingType" (
     CONSTRAINT "TransactionSpendingType_pkey" PRIMARY KEY ("id")
 );
 
--- Insert seed bank account
-INSERT INTO "BankAccount" ("id", "name", "description", "sortCode", "accountNumber", "provider", "createdAt", "updatedAt")
-VALUES ('seed_bank_account_001', 'Main Current Account', 'main current account', 'REDACTED', 'REDACTED', 'HALIFAX', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-
 -- AlterTable: Add bankAccountId to RecurringProjectionEventRule (nullable first)
 ALTER TABLE "RecurringProjectionEventRule" ADD COLUMN "bankAccountId" TEXT;
 

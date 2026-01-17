@@ -83,6 +83,7 @@ export async function createRecurringEventRule(input: CreateRecurringEventRuleIn
       certainty: input.certainty,
       payTo: input.payTo,
       paidBy: input.paidBy,
+      bankAccountId: input.bankAccountId,
       decisionPathId,
       startDate: input.startDate,
       endDate: input.endDate,
@@ -90,6 +91,7 @@ export async function createRecurringEventRule(input: CreateRecurringEventRuleIn
     },
     include: {
       decisionPath: true,
+      bankAccount: true,
     },
   });
 }
@@ -167,6 +169,7 @@ export async function generateProjectionEventsFromRule(ruleId: string): Promise<
         payTo: rule.payTo || undefined,
         paidBy: rule.paidBy || undefined,
         date: adjustedDate,
+        bankAccountId: rule.bankAccountId,
         decisionPath: rule.decisionPath || undefined,
         recurringRuleId: ruleId,
       })

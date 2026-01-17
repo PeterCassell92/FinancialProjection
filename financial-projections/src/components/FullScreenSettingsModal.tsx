@@ -16,6 +16,14 @@ import {
 } from '@/components/ui/select';
 import { DatePicker } from '@/components/DatePicker';
 
+interface BankAccount {
+  id: string;
+  name: string;
+  sortCode: string;
+  accountNumber: string;
+  provider: string;
+}
+
 interface FullScreenSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -25,12 +33,14 @@ interface FullScreenSettingsModalProps {
     initialBalanceDate: Date | string;
     currency: Currency;
     dateFormat: DateFormat;
+    defaultBankAccountId?: string | null;
   };
   onUpdate: (settings: {
     initialBankBalance?: number;
     initialBalanceDate?: string;
     currency?: Currency;
     dateFormat?: DateFormat;
+    defaultBankAccountId?: string;
   }) => Promise<void>;
 }
 
@@ -49,9 +59,14 @@ export default function FullScreenSettingsModal({
   const [initialBalanceDate, setInitialBalanceDate] = useState<Date | undefined>();
   const [currency, setCurrency] = useState<Currency>(currentSettings.currency);
   const [dateFormat, setDateFormat] = useState<DateFormat>(currentSettings.dateFormat);
+  const [defaultBankAccountId, setDefaultBankAccountId] = useState<string | undefined>(
+    currentSettings.defaultBankAccountId || undefined
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [loadingBankAccounts, setLoadingBankAccounts] = useState(true);
 
   // Initialize fields when currentSettings changes
   useEffect(() => {
@@ -64,7 +79,30 @@ export default function FullScreenSettingsModal({
     setInitialBankBalance(currentSettings.initialBankBalance?.toString() || '0');
     setCurrency(currentSettings.currency);
     setDateFormat(currentSettings.dateFormat);
+    setDefaultBankAccountId(currentSettings.defaultBankAccountId || undefined);
   }, [currentSettings]);
+
+  // Fetch bank accounts when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const fetchBankAccounts = async () => {
+        try {
+          const response = await fetch('/api/bank-accounts');
+          const data = await response.json();
+
+          if (data.success && data.data) {
+            setBankAccounts(data.data);
+          }
+        } catch (error) {
+          console.error('Failed to fetch bank accounts:', error);
+        } finally {
+          setLoadingBankAccounts(false);
+        }
+      };
+
+      fetchBankAccounts();
+    }
+  }, [isOpen]);
 
   const handleCountryPreset = (country: CountryPreset) => {
     if (country === 'UK') {
@@ -98,6 +136,7 @@ export default function FullScreenSettingsModal({
         initialBalanceDate: initialBalanceDate.toISOString().split('T')[0],
         currency,
         dateFormat,
+        defaultBankAccountId,
       });
 
       setSuccessMessage('Settings saved successfully');
@@ -123,6 +162,7 @@ export default function FullScreenSettingsModal({
     }
     setCurrency(currentSettings.currency);
     setDateFormat(currentSettings.dateFormat);
+    setDefaultBankAccountId(currentSettings.defaultBankAccountId || undefined);
     setError(null);
     setSuccessMessage(null);
     onClose();
@@ -279,6 +319,83 @@ export default function FullScreenSettingsModal({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Bank Accounts Section */}
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Bank Accounts</h3>
+
+            {loadingBankAccounts ? (
+              <div className="text-center py-8 text-gray-500">
+                Loading bank accounts...
+              </div>
+            ) : bankAccounts.length === 0 ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-yellow-800 text-sm">
+                  No bank accounts found. Bank accounts will be automatically created when you import bank statements.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Default Bank Account Selector */}
+                <div className="space-y-2">
+                  <Label htmlFor="default-bank-account">Default Bank Account</Label>
+                  <Select
+                    value={defaultBankAccountId || 'none'}
+                    onValueChange={(value) => setDefaultBankAccountId(value === 'none' ? undefined : value)}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="default-bank-account" data-testid="default-bank-account-select">
+                      <SelectValue placeholder="Select default bank account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None (select each time)</SelectItem>
+                      {bankAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name} ({account.sortCode} - {account.accountNumber})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-gray-500">
+                    This account will be pre-selected when creating new events
+                  </p>
+                </div>
+
+                {/* Bank Accounts List */}
+                <div className="space-y-2">
+                  <Label>Your Bank Accounts</Label>
+                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+                    {bankAccounts.map((account) => (
+                      <div
+                        key={account.id}
+                        className="p-4 flex items-center justify-between hover:bg-gray-50"
+                        data-testid={`bank-account-item-${account.id}`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-gray-900">{account.name}</h4>
+                            {defaultBankAccountId === account.id && (
+                              <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-4 mt-1 text-sm text-gray-600">
+                            <span>Sort Code: {account.sortCode}</span>
+                            <span>Account: {account.accountNumber}</span>
+                            <span>Provider: {account.provider}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Bank accounts are created automatically when importing CSV statements. Visit the Bank Records page to upload statements.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

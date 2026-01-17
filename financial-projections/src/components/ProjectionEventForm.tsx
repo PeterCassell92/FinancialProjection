@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { DatePicker } from '@/components/DatePicker';
 import DecisionPathAutocomplete from '@/components/DecisionPathAutocomplete';
@@ -10,6 +10,14 @@ interface ProjectionEventFormProps {
   onCancel: () => void;
   onSuccess: () => void;
   initialRecurringMode?: boolean;
+}
+
+interface BankAccount {
+  id: string;
+  name: string;
+  sortCode: string;
+  accountNumber: string;
+  provider: string;
 }
 
 export default function ProjectionEventForm({
@@ -28,6 +36,7 @@ export default function ProjectionEventForm({
     payTo: '',
     paidBy: '',
     decisionPath: '',
+    bankAccountId: '',
   });
 
   const [recurringData, setRecurringData] = useState({
@@ -37,6 +46,46 @@ export default function ProjectionEventForm({
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [loadingBankAccounts, setLoadingBankAccounts] = useState(true);
+
+  // Fetch bank accounts and settings on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch bank accounts
+        const accountsResponse = await fetch('/api/bank-accounts');
+        const accountsData = await accountsResponse.json();
+
+        if (accountsData.success && accountsData.data) {
+          setBankAccounts(accountsData.data);
+        }
+
+        // Fetch settings to get default bank account
+        const settingsResponse = await fetch('/api/settings');
+        const settingsData = await settingsResponse.json();
+
+        if (settingsData.success && settingsData.data?.defaultBankAccountId) {
+          setFormData(prev => ({
+            ...prev,
+            bankAccountId: settingsData.data.defaultBankAccountId
+          }));
+        } else if (accountsData.success && accountsData.data?.length > 0) {
+          // Fallback to first account if no default is set
+          setFormData(prev => ({
+            ...prev,
+            bankAccountId: accountsData.data[0].id
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch bank accounts or settings:', error);
+      } finally {
+        setLoadingBankAccounts(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +105,7 @@ export default function ProjectionEventForm({
         payTo: formData.type === 'EXPENSE' ? formData.payTo || undefined : undefined,
         paidBy: formData.type === 'INCOMING' ? formData.paidBy || undefined : undefined,
         decisionPath: formData.decisionPath || undefined,
+        bankAccountId: formData.bankAccountId,
       };
 
       const body = recurrentMode
@@ -216,6 +266,41 @@ export default function ProjectionEventForm({
         />
         <p className="mt-1 text-xs text-gray-500">
           Use decision paths to model different scenarios. Events can be toggled on/off based on the active scenario.
+        </p>
+      </div>
+
+      {/* Bank Account */}
+      <div>
+        <label htmlFor="bank-account" className="block text-sm font-medium text-gray-700 mb-1">
+          Bank Account *
+        </label>
+        {loadingBankAccounts ? (
+          <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+            Loading bank accounts...
+          </div>
+        ) : bankAccounts.length === 0 ? (
+          <div className="w-full px-3 py-2 border border-red-300 rounded-lg bg-red-50 text-red-600">
+            No bank accounts found. Please add a bank account in Settings.
+          </div>
+        ) : (
+          <select
+            id="bank-account"
+            value={formData.bankAccountId}
+            onChange={(e) => setFormData({ ...formData, bankAccountId: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            required
+            data-testid="bank-account-select"
+          >
+            <option value="">Select a bank account</option>
+            {bankAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name} ({account.sortCode} - {account.accountNumber})
+              </option>
+            ))}
+          </select>
+        )}
+        <p className="mt-1 text-xs text-gray-500">
+          Select the bank account this transaction will affect. You can set a default account in Settings.
         </p>
       </div>
 

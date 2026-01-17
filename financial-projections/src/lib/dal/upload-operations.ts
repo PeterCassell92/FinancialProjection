@@ -6,7 +6,8 @@ export interface CreateUploadOperationInput {
   fileType?: string;
   fileSize?: number;
   dataFormatId: string;
-  bankAccountId: string;
+  bankAccountId?: string;  // Now optional for preflight check
+  localFileLocation?: string;
 }
 
 export interface UpdateUploadOperationInput {
@@ -14,6 +15,12 @@ export interface UpdateUploadOperationInput {
   numberOfRecords?: number;
   errorMessage?: string;
   fileS3Location?: string;
+  localFileLocation?: string;
+  earliestDate?: Date;
+  latestDate?: Date;
+  detectedAccountNumber?: string;
+  detectedSortCode?: string;
+  bankAccountId?: string;
 }
 
 /**
@@ -97,6 +104,7 @@ export async function createUploadOperation(
       fileSize: input.fileSize,
       dataFormatId: input.dataFormatId,
       bankAccountId: input.bankAccountId,
+      localFileLocation: input.localFileLocation,
       operationStatus: 'PENDING',
     },
     include: {

@@ -6,7 +6,11 @@ import { Currency, DateFormat } from '@prisma/client';
  * Get the current settings (there should only be one record)
  */
 export async function getSettings() {
-  return await prisma.settings.findFirst();
+  return await prisma.settings.findFirst({
+    include: {
+      defaultBankAccount: true,
+    },
+  });
 }
 
 /**
@@ -50,7 +54,7 @@ export async function updateInitialBankBalance(
 }
 
 /**
- * Update settings (currency, dateFormat, etc.)
+ * Update settings (currency, dateFormat, defaultBankAccountId, etc.)
  */
 export async function updateSettings(
   settingsId: string,
@@ -59,6 +63,7 @@ export async function updateSettings(
     initialBalanceDate?: Date;
     currency?: Currency;
     dateFormat?: DateFormat;
+    defaultBankAccountId?: string;
   }
 ) {
   const updateData: any = {};
@@ -79,9 +84,16 @@ export async function updateSettings(
     updateData.dateFormat = updates.dateFormat;
   }
 
+  if (updates.defaultBankAccountId !== undefined) {
+    updateData.defaultBankAccountId = updates.defaultBankAccountId;
+  }
+
   return await prisma.settings.update({
     where: { id: settingsId },
     data: updateData,
+    include: {
+      defaultBankAccount: true,
+    },
   });
 }
 

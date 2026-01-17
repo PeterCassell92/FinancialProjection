@@ -11,13 +11,20 @@ datasource db {
 }
 
 model Settings {
-  id                    String      @id @default(cuid())
-  initialBankBalance    Decimal     @db.Decimal(10, 2)
-  initialBalanceDate    DateTime    @db.Date  // The date when initial balance is set (typically today on first launch)
-  currency              Currency    @default(GBP)
-  dateFormat            DateFormat  @default(UK)
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  id                    String       @id @default(cuid())
+  initialBankBalance    Decimal      @db.Decimal(10, 2)
+  initialBalanceDate    DateTime     @db.Date  // The date when initial balance is set (typically today on first launch)
+  currency              Currency     @default(GBP)
+  dateFormat            DateFormat   @default(UK)
+
+  // Default bank account for new events
+  defaultBankAccountId  String?
+  defaultBankAccount    BankAccount? @relation(fields: [defaultBankAccountId], references: [id], onDelete: SetNull)
+
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([defaultBankAccountId])
 }
 
 enum EventType {
@@ -82,10 +89,13 @@ enum BankProvider {
 
 enum UploadOperationStatus {
   PENDING
-  IN_PROGRESS
-  COMPLETED
-  FAILED
-  PARTIAL
+  CHECKING                // Preflight validity check in progress
+  VALIDITY_CHECK_PASSED   // Preflight check passed, awaiting user confirmation
+  VALIDITY_CHECK_FAILED   // Preflight check failed
+  IN_PROGRESS             // Upload and processing in progress
+  COMPLETED               // Successfully completed
+  FAILED                  // Failed during processing
+  PARTIAL                 // Partially completed (some records failed)
 }
 
 model RecurringProjectionEventRule {
@@ -232,6 +242,7 @@ model BankAccount {
   dailyBalances         DailyBalance[]
   transactionRecords    TransactionRecord[]
   uploadOperations      UploadOperation[]
+  defaultForSettings    Settings[]
 
   @@unique([sortCode, accountNumber])
   @@index([sortCode])
@@ -311,14 +322,21 @@ model UploadOperation {
   fileSize        Int?                   // File size in bytes
   numberOfRecords Int?                   // Number of records processed
   fileS3Location  String?                // Future: AWS S3 location
+  localFileLocation String?              // Local file path for uploaded CSV
   errorMessage    String?                // Store error details if FAILED
+
+  // Preflight check data
+  earliestDate    DateTime?              @db.Date  // Earliest transaction date in CSV
+  latestDate      DateTime?              @db.Date  // Latest transaction date in CSV
+  detectedAccountNumber String?          // Account number detected from CSV
+  detectedSortCode      String?          // Sort code detected from CSV
 
   // Relations
   dataFormatId    String
   dataFormat      DataFormat             @relation(fields: [dataFormatId], references: [id], onDelete: Restrict)
 
-  bankAccountId   String
-  bankAccount     BankAccount            @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  bankAccountId   String?                // Now optional until preflight completes
+  bankAccount     BankAccount?           @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
 
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
@@ -327,4 +345,6 @@ model UploadOperation {
   @@index([dataFormatId])
   @@index([operationStatus])
   @@index([uploadDateTime])
+  @@index([earliestDate])
+  @@index([latestDate])
 }

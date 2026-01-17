@@ -69,7 +69,7 @@ function cleanSortCode(sortCode: string): string {
  *
  * Expected format:
  * Transaction Date,Transaction Type,Sort Code,Account Number,Transaction Description,Debit Amount,Credit Amount,Balance
- * 16/01/2026,DEB,'REDACTED,REDACTED,THE WHITE SWAN,8,,-1055.7
+ * 16/01/2026,DEB,'22-33-44,19292930, THE WHITE BULL,8,,-1055.7
  */
 export function parseHalifaxCSV(csvContent: string): HalifaxCSVParseResult {
   const result: HalifaxCSVParseResult = {

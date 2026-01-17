@@ -58,6 +58,10 @@ next-env.d.ts
 *.sqlite3
 *.db
 
+# uploaded CSV files
+**/tmp/csv-uploads/
+**/tmp
+
 # IDE
 .vscode/
 .idea/

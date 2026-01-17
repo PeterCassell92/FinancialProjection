@@ -7,6 +7,7 @@ export interface SettingsState {
   initialBalanceDate: string | null;
   currency: Currency;
   dateFormat: DateFormat;
+  defaultBankAccountId: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   loading: boolean;
@@ -19,6 +20,7 @@ const initialState: SettingsState = {
   initialBalanceDate: null,
   currency: 'GBP' as Currency,
   dateFormat: 'UK' as DateFormat,
+  defaultBankAccountId: null,
   createdAt: null,
   updatedAt: null,
   loading: true,  // Start as loading - fetchSettings is triggered on mount
@@ -47,6 +49,7 @@ export const updateSettings = createAsyncThunk(
     initialBalanceDate?: string;
     currency?: Currency;
     dateFormat?: DateFormat;
+    defaultBankAccountId?: string;
   }) => {
     const response = await fetch('/api/settings', {
       method: 'PUT',
@@ -86,6 +89,7 @@ const settingsSlice = createSlice({
         state.initialBalanceDate = action.payload.initialBalanceDate;
         state.currency = action.payload.currency;
         state.dateFormat = action.payload.dateFormat;
+        state.defaultBankAccountId = action.payload.defaultBankAccountId;
         state.createdAt = action.payload.createdAt;
         state.updatedAt = action.payload.updatedAt;
       })
@@ -105,6 +109,7 @@ const settingsSlice = createSlice({
         state.initialBalanceDate = action.payload.initialBalanceDate;
         state.currency = action.payload.currency;
         state.dateFormat = action.payload.dateFormat;
+        state.defaultBankAccountId = action.payload.defaultBankAccountId;
         state.createdAt = action.payload.createdAt;
         state.updatedAt = action.payload.updatedAt;
       })

@@ -204,6 +204,7 @@ export default function Dashboard() {
             initialBalanceDate: settings.initialBalanceDate || new Date().toISOString(),
             currency: settings.currency,
             dateFormat: settings.dateFormat,
+            defaultBankAccountId: settings.defaultBankAccountId,
           }}
           onUpdate={handleUpdateSettings}
         />

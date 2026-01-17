@@ -207,3 +207,48 @@ export async function getTransactionStats(bankAccountId: string) {
     totalCredits: totalCredits._sum.creditAmount?.toNumber() || 0,
   };
 }
+
+/**
+ * Check if there are existing transaction records for a bank account within a date range
+ * Returns true if there's an overlap, false otherwise
+ */
+export async function checkDateRangeOverlap(
+  bankAccountId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<{
+  hasOverlap: boolean;
+  overlappingRecordCount: number;
+  earliestOverlappingDate?: Date;
+  latestOverlappingDate?: Date;
+}> {
+  const overlappingRecords = await prisma.transactionRecord.findMany({
+    where: {
+      bankAccountId,
+      transactionDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    select: {
+      transactionDate: true,
+    },
+    orderBy: {
+      transactionDate: 'asc',
+    },
+  });
+
+  if (overlappingRecords.length === 0) {
+    return {
+      hasOverlap: false,
+      overlappingRecordCount: 0,
+    };
+  }
+
+  return {
+    hasOverlap: true,
+    overlappingRecordCount: overlappingRecords.length,
+    earliestOverlappingDate: overlappingRecords[0].transactionDate,
+    latestOverlappingDate: overlappingRecords[overlappingRecords.length - 1].transactionDate,
+  };
+}
