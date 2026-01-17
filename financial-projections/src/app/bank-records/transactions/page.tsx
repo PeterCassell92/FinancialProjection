@@ -25,9 +25,9 @@ interface TransactionRecord {
   bankAccountId: string;
   transactionDate: string;
   transactionType: string;
-  description: string;
-  paidOut: number | null;
-  paidIn: number | null;
+  transactionDescription: string;
+  debitAmount: number | null;
+  creditAmount: number | null;
   balance: number;
   notes: string | null;
   bankAccount: {
@@ -36,7 +36,9 @@ interface TransactionRecord {
     sortCode: string;
     accountNumber: string;
   };
-  spendingTypes: SpendingType[];
+  spendingTypes: Array<{
+    spendingType: SpendingType;
+  }>;
 }
 
 interface BankAccount {
@@ -113,7 +115,7 @@ export default function TransactionsPage() {
   const handleEdit = (transaction: TransactionRecord) => {
     setEditingTransaction(transaction.id);
     setEditNotes(transaction.notes || '');
-    setEditSpendingTypes(transaction.spendingTypes.map((st) => st.id));
+    setEditSpendingTypes(transaction.spendingTypes.map((st) => st.spendingType.id));
   };
 
   const handleCancelEdit = () => {
@@ -164,8 +166,8 @@ export default function TransactionsPage() {
     }
   };
 
-  const formatCurrency = (value: number | null) => {
-    if (value === null) return '-';
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return '-';
     return `£${value.toFixed(2)}`;
   };
 
@@ -250,16 +252,16 @@ export default function TransactionsPage() {
                           {formatDate(transaction.transactionDate)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
-                          {transaction.description}
+                          {transaction.transactionDescription}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                           {transaction.transactionType}
                         </td>
                         <td className="px-4 py-3 text-sm text-right text-red-600 whitespace-nowrap">
-                          {formatCurrency(transaction.paidOut)}
+                          {formatCurrency(transaction.debitAmount)}
                         </td>
                         <td className="px-4 py-3 text-sm text-right text-green-600 whitespace-nowrap">
-                          {formatCurrency(transaction.paidIn)}
+                          {formatCurrency(transaction.creditAmount)}
                         </td>
                         <td className="px-4 py-3 text-sm text-right text-gray-900 whitespace-nowrap font-medium">
                           {formatCurrency(transaction.balance)}
@@ -287,12 +289,12 @@ export default function TransactionsPage() {
                             </Select>
                           ) : transaction.spendingTypes.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {transaction.spendingTypes.map((type) => (
+                              {transaction.spendingTypes.map((st) => (
                                 <span
-                                  key={type.id}
+                                  key={st.spendingType.id}
                                   className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded"
                                 >
-                                  {type.name}
+                                  {st.spendingType.name}
                                 </span>
                               ))}
                             </div>
