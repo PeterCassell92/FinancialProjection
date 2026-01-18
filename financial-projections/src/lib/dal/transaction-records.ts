@@ -311,6 +311,56 @@ export async function updateTransactionRecord(
 }
 
 /**
+ * Mass update multiple transaction records with the same data
+ * Useful for applying notes or spending types to many transactions at once
+ */
+export async function updateManyTransactionRecords(
+  ids: string[],
+  input: Partial<UpdateTransactionRecordInput>
+): Promise<number> {
+  let updatedCount = 0;
+
+  // Use a transaction to ensure atomicity
+  await prisma.$transaction(async (tx) => {
+    // Handle spending types if provided
+    if (input.spendingTypeIds !== undefined) {
+      // Delete existing spending type associations for all records
+      await tx.transactionSpendingType.deleteMany({
+        where: { transactionRecordId: { in: ids } },
+      });
+
+      // Create new associations if any spending types provided
+      if (input.spendingTypeIds.length > 0) {
+        const createData = ids.flatMap((id) =>
+          input.spendingTypeIds!.map((spendingTypeId) => ({
+            transactionRecordId: id,
+            spendingTypeId,
+          }))
+        );
+
+        await tx.transactionSpendingType.createMany({
+          data: createData,
+        });
+      }
+    }
+
+    // Update notes if provided
+    if (input.notes !== undefined) {
+      const result = await tx.transactionRecord.updateMany({
+        where: { id: { in: ids } },
+        data: { notes: input.notes },
+      });
+      updatedCount = result.count;
+    } else {
+      // If only updating spending types, count as updated
+      updatedCount = ids.length;
+    }
+  });
+
+  return updatedCount;
+}
+
+/**
  * Delete a transaction record
  */
 export async function deleteTransactionRecord(id: string): Promise<TransactionRecord> {

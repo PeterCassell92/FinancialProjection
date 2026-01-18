@@ -1,0 +1,32 @@
+{
+  "name": "financial-projections-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Financial Projections API",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "inspector": "node --inspect dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "financial-projections",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  },
+  "volta": {
+    "node": "24.13.0",
+    "yarn": "4.12.0"
+  }
+}

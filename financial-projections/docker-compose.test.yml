@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Test Environment
+  postgres-test:
+    image: postgres:14-alpine
+    container_name: financial-projections-test-db
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: financial_projections_test
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"  # Map to 5433 to avoid conflict with local PostgreSQL
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+      - ./prisma/seed-test.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d financial_projections_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Next.js Application for Test Environment
+  app-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        - NODE_ENV=test
+    container_name: financial-projections-test-app
+    environment:
+      - NODE_ENV=test
+      - DATABASE_URL=postgresql://testuser:testpassword@postgres-test:5432/financial_projections_test?schema=public
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    ports:
+      - "3001:3000"
+    volumes:
+      # Mount source code for hot reload in test environment
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+      - ./prisma:/app/prisma:ro
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && yarn dev"
+    restart: unless-stopped
+
+  # Prisma Studio for Test Database Inspection
+  prisma-studio-test:
+    image: node:18-alpine
+    container_name: financial-projections-test-studio
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgresql://testuser:testpassword@postgres-test:5432/financial_projections_test?schema=public
+    ports:
+      - "5556:5555"  # Map to 5556 to avoid conflict with local Prisma Studio
+    volumes:
+      - ./prisma:/app/prisma:ro
+      - ./package.json:/app/package.json:ro
+      - ./node_modules:/app/node_modules:ro
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    command: npx prisma studio --browser none
+    restart: unless-stopped
+
+volumes:
+  postgres-test-data:
+    driver: local
+
+networks:
+  test-network:
+    driver: bridge

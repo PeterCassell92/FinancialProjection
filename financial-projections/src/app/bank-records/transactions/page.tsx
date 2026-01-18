@@ -15,6 +15,9 @@ import {
   setSelectedBankAccountId,
   selectSelectedBankAccountId,
   selectEnableTransactionDeletion,
+  selectPagination,
+  setCurrentPage,
+  setRecordsPerPage,
 } from '@/lib/redux/bankRecordsSlice';
 import {
   fetchBankAccounts,
@@ -82,6 +85,7 @@ export default function TransactionsPage() {
   const bankAccountsLoading = useAppSelector(selectBankAccountsLoading);
   const defaultBankAccountId = useAppSelector(selectDefaultBankAccountId);
   const enableTransactionDeletion = useAppSelector(selectEnableTransactionDeletion);
+  const pagination = useAppSelector(selectPagination);
 
   // Local state
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
@@ -116,12 +120,12 @@ export default function TransactionsPage() {
     }
   }, [dispatch, defaultBankAccountId, selectedBankAccount]);
 
-  // Fetch transactions when bank account changes
+  // Fetch transactions when bank account or pagination changes
   useEffect(() => {
     if (selectedBankAccount) {
       dispatch(fetchTransactions(selectedBankAccount));
     }
-  }, [dispatch, selectedBankAccount]);
+  }, [dispatch, selectedBankAccount, pagination.currentPage, pagination.recordsPerPage]);
 
   const handleEdit = (transaction: TransactionRecord) => {
     setEditingTransaction(transaction.id);
@@ -431,6 +435,83 @@ export default function TransactionsPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!transactionsLoading && transactions.length > 0 && (
+              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{((pagination.currentPage - 1) * pagination.recordsPerPage) + 1}</span> to{' '}
+                    <span className="font-medium">
+                      {Math.min(pagination.currentPage * pagination.recordsPerPage, pagination.totalRecords)}
+                    </span> of{' '}
+                    <span className="font-medium">{pagination.totalRecords}</span> transactions
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="page-size" className="text-sm text-gray-700 whitespace-nowrap">Per page:</Label>
+                    <Select
+                      value={pagination.recordsPerPage.toString()}
+                      onValueChange={(value) => dispatch(setRecordsPerPage(parseInt(value)))}
+                    >
+                      <SelectTrigger id="page-size" className="w-20" data-testid="page-size-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                        <SelectItem value="200">200</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => dispatch(setCurrentPage(1))}
+                    disabled={pagination.currentPage === 1}
+                    data-testid="first-page-button"
+                  >
+                    First
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => dispatch(setCurrentPage(pagination.currentPage - 1))}
+                    disabled={pagination.currentPage === 1}
+                    data-testid="prev-page-button"
+                  >
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-2 px-4">
+                    <span className="text-sm text-gray-700">
+                      Page <span className="font-medium">{pagination.currentPage}</span> of{' '}
+                      <span className="font-medium">{pagination.totalPages}</span>
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => dispatch(setCurrentPage(pagination.currentPage + 1))}
+                    disabled={pagination.currentPage >= pagination.totalPages}
+                    data-testid="next-page-button"
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => dispatch(setCurrentPage(pagination.totalPages))}
+                    disabled={pagination.currentPage >= pagination.totalPages}
+                    data-testid="last-page-button"
+                  >
+                    Last
+                  </Button>
+                </div>
               </div>
             )}
           </div>

@@ -1,6 +1,9 @@
 # Dockerfile for test environment Next.js application
 FROM node:24-alpine
 
+# Build argument for Prisma generate (use dummy value if not provided)
+ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
+
 # Install dependencies for Prisma
 RUN apk add --no-cache libc6-compat openssl
 
@@ -16,6 +19,9 @@ RUN yarn install --immutable
 
 # Copy application files
 COPY . .
+
+# Set DATABASE_URL from build arg for Prisma generate
+ENV DATABASE_URL=${DATABASE_URL}
 
 # Generate Prisma client
 RUN npx prisma generate
