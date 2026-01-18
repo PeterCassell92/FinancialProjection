@@ -10,6 +10,8 @@ export interface CreateTransactionRecordInput {
   balance: number;
   bankAccountId: string;
   notes?: string;
+  uploadOperationId?: string;  // Optional: link to upload operation
+  csvRowNumber?: number;        // Optional: row number in CSV file
 }
 
 export interface UpdateTransactionRecordInput {
@@ -27,15 +29,33 @@ export interface TransactionRecordWithSpendingTypes extends TransactionRecord {
       color: string | null;
     };
   }>;
+  uploadSources: Array<{
+    id: string;
+    csvRowNumber: number;
+    uploadOperationId: string;
+  }>;
+}
+
+export interface GetTransactionRecordsOptions {
+  bankAccountId: string;
+  startDate?: Date;
+  endDate?: Date;
+  description?: string;  // Partial match search on transaction description
+  page?: number;         // Page number (1-indexed)
+  pageSize?: number;     // Number of records per page
 }
 
 /**
- * Get transaction records for a bank account with optional date range
+ * Get transaction records for a bank account with optional date range, description search, and pagination
+ * Results are sorted by transaction date (desc), then by CSV row number (asc) for same-day transactions
  */
 export async function getTransactionRecords(
   bankAccountId: string,
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
+  page?: number,
+  pageSize?: number,
+  description?: string
 ): Promise<TransactionRecordWithSpendingTypes[]> {
   const where: Prisma.TransactionRecordWhereInput = {
     bankAccountId,
@@ -51,7 +71,19 @@ export async function getTransactionRecords(
     }
   }
 
-  return await prisma.transactionRecord.findMany({
+  // Add description search (case-insensitive partial match)
+  if (description) {
+    where.transactionDescription = {
+      contains: description,
+      mode: 'insensitive',
+    };
+  }
+
+  // Calculate pagination
+  const skip = page && pageSize ? (page - 1) * pageSize : undefined;
+  const take = pageSize;
+
+  const records = await prisma.transactionRecord.findMany({
     where,
     include: {
       spendingTypes: {
@@ -59,11 +91,70 @@ export async function getTransactionRecords(
           spendingType: true,
         },
       },
+      uploadSources: {
+        select: {
+          id: true,
+          csvRowNumber: true,
+          uploadOperationId: true,
+        },
+      },
     },
-    orderBy: {
-      transactionDate: 'desc',
-    },
+    orderBy: [
+      { transactionDate: 'desc' },
+      { id: 'asc' }, // Secondary sort by ID for consistent ordering
+    ],
+    skip,
+    take,
   });
+
+  // Post-process to sort by CSV row number within the same date
+  // Group by date and sort each group by csvRowNumber
+  const sortedRecords = records.sort((a, b) => {
+    // First sort by date (desc)
+    const dateCompare = b.transactionDate.getTime() - a.transactionDate.getTime();
+    if (dateCompare !== 0) return dateCompare;
+
+    // For same date, sort by CSV row number (asc)
+    const aRowNum = a.uploadSources[0]?.csvRowNumber ?? Number.MAX_SAFE_INTEGER;
+    const bRowNum = b.uploadSources[0]?.csvRowNumber ?? Number.MAX_SAFE_INTEGER;
+    return aRowNum - bRowNum;
+  });
+
+  return sortedRecords;
+}
+
+/**
+ * Get total count of transaction records matching the criteria
+ */
+export async function getTransactionRecordsCount(
+  bankAccountId: string,
+  startDate?: Date,
+  endDate?: Date,
+  description?: string
+): Promise<number> {
+  const where: Prisma.TransactionRecordWhereInput = {
+    bankAccountId,
+  };
+
+  if (startDate || endDate) {
+    where.transactionDate = {};
+    if (startDate) {
+      where.transactionDate.gte = startDate;
+    }
+    if (endDate) {
+      where.transactionDate.lte = endDate;
+    }
+  }
+
+  // Add description search (case-insensitive partial match)
+  if (description) {
+    where.transactionDescription = {
+      contains: description,
+      mode: 'insensitive',
+    };
+  }
+
+  return await prisma.transactionRecord.count({ where });
 }
 
 /**
@@ -78,6 +169,13 @@ export async function getTransactionRecordById(
       spendingTypes: {
         include: {
           spendingType: true,
+        },
+      },
+      uploadSources: {
+        select: {
+          id: true,
+          csvRowNumber: true,
+          uploadOperationId: true,
         },
       },
     },
@@ -107,27 +205,75 @@ export async function createTransactionRecord(
 /**
  * Batch create transaction records
  * Useful for CSV import
+ *
+ * If uploadOperationId and csvRowNumber are provided, creates junction table entries
+ * to link transactions to their source CSV file and row number
  */
 export async function batchCreateTransactionRecords(
   inputs: CreateTransactionRecordInput[]
 ): Promise<number> {
-  const data = inputs.map((input) => ({
-    transactionDate: input.transactionDate,
-    transactionType: input.transactionType,
-    transactionDescription: input.transactionDescription,
-    debitAmount: input.debitAmount ? new Prisma.Decimal(input.debitAmount) : null,
-    creditAmount: input.creditAmount ? new Prisma.Decimal(input.creditAmount) : null,
-    balance: new Prisma.Decimal(input.balance),
-    bankAccountId: input.bankAccountId,
-    notes: input.notes,
-  }));
+  // Check if any input has upload operation info - if so, use transaction with junction table
+  const hasUploadInfo = inputs.some(input => input.uploadOperationId && input.csvRowNumber !== undefined);
 
-  const result = await prisma.transactionRecord.createMany({
-    data,
-    skipDuplicates: true,
-  });
+  if (hasUploadInfo) {
+    // Use transaction to create records with junction table entries
+    let successCount = 0;
 
-  return result.count;
+    for (const input of inputs) {
+      try {
+        await prisma.transactionRecord.create({
+          data: {
+            transactionDate: input.transactionDate,
+            transactionType: input.transactionType,
+            transactionDescription: input.transactionDescription,
+            debitAmount: input.debitAmount ? new Prisma.Decimal(input.debitAmount) : null,
+            creditAmount: input.creditAmount ? new Prisma.Decimal(input.creditAmount) : null,
+            balance: new Prisma.Decimal(input.balance),
+            bankAccountId: input.bankAccountId,
+            notes: input.notes,
+            // Create junction table entry if upload info provided
+            ...(input.uploadOperationId && input.csvRowNumber !== undefined ? {
+              uploadSources: {
+                create: {
+                  uploadOperationId: input.uploadOperationId,
+                  csvRowNumber: input.csvRowNumber,
+                },
+              },
+            } : {}),
+          },
+        });
+        successCount++;
+      } catch (error) {
+        // Skip duplicates but log other errors
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          // Duplicate - skip silently
+          continue;
+        }
+        console.error('Error creating transaction record:', error);
+      }
+    }
+
+    return successCount;
+  } else {
+    // Original behavior: use createMany for better performance when no upload info
+    const data = inputs.map((input) => ({
+      transactionDate: input.transactionDate,
+      transactionType: input.transactionType,
+      transactionDescription: input.transactionDescription,
+      debitAmount: input.debitAmount ? new Prisma.Decimal(input.debitAmount) : null,
+      creditAmount: input.creditAmount ? new Prisma.Decimal(input.creditAmount) : null,
+      balance: new Prisma.Decimal(input.balance),
+      bankAccountId: input.bankAccountId,
+      notes: input.notes,
+    }));
+
+    const result = await prisma.transactionRecord.createMany({
+      data,
+      skipDuplicates: true,
+    });
+
+    return result.count;
+  }
 }
 
 /**
@@ -171,6 +317,16 @@ export async function deleteTransactionRecord(id: string): Promise<TransactionRe
   return await prisma.transactionRecord.delete({
     where: { id },
   });
+}
+
+/**
+ * Delete all transaction records for a bank account
+ */
+export async function deleteAllTransactionRecords(bankAccountId: string): Promise<number> {
+  const result = await prisma.transactionRecord.deleteMany({
+    where: { bankAccountId },
+  });
+  return result.count;
 }
 
 /**

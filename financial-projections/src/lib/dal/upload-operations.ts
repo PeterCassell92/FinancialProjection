@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { UploadOperation, UploadOperationStatus, DataFormat } from '@prisma/client';
+import { UploadOperation, UploadOperationStatus, DataFormat, BankAccount, Prisma } from '@prisma/client';
 
 export interface CreateUploadOperationInput {
   filename: string;
@@ -9,6 +9,11 @@ export interface CreateUploadOperationInput {
   bankAccountId?: string;  // Now optional for preflight check
   localFileLocation?: string;
 }
+
+export type UploadOperationWithRelations = UploadOperation & {
+  bankAccount: BankAccount | null;
+  dataFormat: DataFormat;
+};
 
 export interface UpdateUploadOperationInput {
   operationStatus?: UploadOperationStatus;
@@ -79,9 +84,9 @@ export async function getUploadOperationsByBankAccount(
 }
 
 /**
- * Get an upload operation by ID
+ * Get an upload operation by ID with relations
  */
-export async function getUploadOperationById(id: string): Promise<UploadOperation | null> {
+export async function getUploadOperationById(id: string): Promise<UploadOperationWithRelations | null> {
   return await prisma.uploadOperation.findUnique({
     where: { id },
     include: {

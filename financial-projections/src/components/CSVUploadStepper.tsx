@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { defineStepper } from '@stepperize/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -253,9 +253,14 @@ function ConfirmStep({ uploadOperationId, validityData, onSuccess, onBack }: Con
   const [checking, setChecking] = useState(true);
   const [overlapData, setOverlapData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const hasCheckedRef = useRef(false);
 
   // Check for date overlap on mount
-  useState(() => {
+  useEffect(() => {
+    // Prevent duplicate checks (especially in StrictMode)
+    if (hasCheckedRef.current) return;
+    hasCheckedRef.current = true;
+
     const checkOverlap = async () => {
       try {
         const response = await fetch('/api/transaction-records/check-date-overlap', {
@@ -280,7 +285,7 @@ function ConfirmStep({ uploadOperationId, validityData, onSuccess, onBack }: Con
     };
 
     checkOverlap();
-  });
+  }, [uploadOperationId]); // Add dependency array to prevent re-runs
 
   const handleContinue = () => {
     onSuccess(overlapData);
@@ -385,9 +390,14 @@ function UploadStep({ uploadOperationId, overlapData, onSuccess, onBack }: Uploa
   const [uploading, setUploading] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const hasUploadedRef = useRef(false);
 
   // Start upload on mount
-  useState(() => {
+  useEffect(() => {
+    // Prevent duplicate uploads (especially in StrictMode)
+    if (hasUploadedRef.current) return;
+    hasUploadedRef.current = true;
+
     const doUpload = async () => {
       try {
         const response = await fetch('/api/transaction-records/upload-csv', {
@@ -415,7 +425,7 @@ function UploadStep({ uploadOperationId, overlapData, onSuccess, onBack }: Uploa
     };
 
     doUpload();
-  });
+  }, [uploadOperationId, overlapData]); // Add dependency array to prevent re-runs
 
   if (uploading) {
     return (

@@ -1,58 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateDailyBalances, recalculateBalancesFrom } from '@/lib/calculations/balance-calculator';
-import { ApiResponse, CalculateBalancesRequest } from '@/types';
+import {
+  CalculateBalancesRequestSchema,
+  CalculateBalancesResponse,
+} from '@/lib/schemas';
 
 /**
  * POST /api/calculate-balances
  * Trigger balance calculation for a date range
  *
- * Body can include:
- * - startDate: string (required)
- * - endDate: string (required)
+ * Body:
+ * - startDate: string (required) - ISO date string
+ * - endDate: string (required) - ISO date string
  * - bankAccountId: string (required)
- * - enabledDecisionPathIds: string[] (optional) - IDs of decision paths that are enabled
  */
 export async function POST(request: NextRequest) {
   try {
-    const body: CalculateBalancesRequest & { enabledDecisionPathIds?: string[], bankAccountId: string } = await request.json();
+    const body = await request.json();
 
-    if (!body.startDate || !body.endDate || !body.bankAccountId) {
-      const response: ApiResponse = {
+    // Validate request body with Zod
+    const validation = CalculateBalancesRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: CalculateBalancesResponse = {
         success: false,
-        error: 'startDate, endDate, and bankAccountId are required',
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
       };
       return NextResponse.json(response, { status: 400 });
     }
 
-    const startDate = new Date(body.startDate);
-    const endDate = new Date(body.endDate);
+    const validatedData = validation.data;
 
-    // Validate dates
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Invalid date format',
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
+    const startDate = new Date(validatedData.startDate);
+    const endDate = new Date(validatedData.endDate);
 
-    if (startDate > endDate) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'startDate must be before or equal to endDate',
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
+    // Calculate balances for the specified bank account
+    await calculateDailyBalances(startDate, endDate, validatedData.bankAccountId);
 
-    // Convert enabled decision path IDs array to Set (if provided)
-    const enabledDecisionPathIds = body.enabledDecisionPathIds
-      ? new Set(body.enabledDecisionPathIds)
-      : undefined;
-
-    // Calculate balances with decision path filtering for the specified bank account
-    await calculateDailyBalances(startDate, endDate, body.bankAccountId, enabledDecisionPathIds);
-
-    const response: ApiResponse = {
+    const response: CalculateBalancesResponse = {
       success: true,
       message: `Balances calculated successfully from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`,
     };
@@ -60,7 +44,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error calculating balances:', error);
-    const response: ApiResponse = {
+    const response: CalculateBalancesResponse = {
       success: false,
       error: 'Failed to calculate balances',
     };

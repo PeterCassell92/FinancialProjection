@@ -3,7 +3,7 @@ import { getUploadOperationById } from '@/lib/dal/upload-operations';
 import { checkDateRangeOverlap } from '@/lib/dal/transaction-records';
 import { getOrCreateBankAccount } from '@/lib/dal/bank-accounts';
 import { BankProvider } from '@prisma/client';
-import { ApiResponse } from '@/types';
+import { DateOverlapCheckResponse } from '@/lib/schemas';
 
 /**
  * POST /api/transaction-records/check-date-overlap
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const { uploadOperationId, bankAccountId: providedBankAccountId } = body;
 
     if (!uploadOperationId) {
-      const response: ApiResponse = {
+      const response: DateOverlapCheckResponse = {
         success: false,
         error: 'Missing required field: uploadOperationId',
       };
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Get the upload operation
     const uploadOperation = await getUploadOperationById(uploadOperationId);
     if (!uploadOperation) {
-      const response: ApiResponse = {
+      const response: DateOverlapCheckResponse = {
         success: false,
         error: 'Upload operation not found',
       };
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Verify the upload operation passed validity check
     if (uploadOperation.operationStatus !== 'VALIDITY_CHECK_PASSED') {
-      const response: ApiResponse = {
+      const response: DateOverlapCheckResponse = {
         success: false,
         error: 'Upload operation has not passed validity check',
       };
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     // Ensure we have date range information
     if (!uploadOperation.earliestDate || !uploadOperation.latestDate) {
-      const response: ApiResponse = {
+      const response: DateOverlapCheckResponse = {
         success: false,
         error: 'Upload operation missing date range information',
       };
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Get or create bank account based on detected info
       if (!uploadOperation.detectedAccountNumber || !uploadOperation.detectedSortCode) {
-        const response: ApiResponse = {
+        const response: DateOverlapCheckResponse = {
           success: false,
           error: 'Unable to determine bank account - missing detected account information',
         };
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       uploadOperation.latestDate
     );
 
-    const response: ApiResponse = {
+    const response: DateOverlapCheckResponse = {
       success: true,
       data: {
         uploadOperationId,
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error checking date overlap:', error);
 
-    const response: ApiResponse = {
+    const response: DateOverlapCheckResponse = {
       success: false,
       error: 'Failed to check date overlap',
       data: {

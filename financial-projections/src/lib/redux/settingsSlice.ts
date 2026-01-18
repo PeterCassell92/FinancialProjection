@@ -121,4 +121,12 @@ const settingsSlice = createSlice({
 });
 
 export const { clearError } = settingsSlice.actions;
+
+// Selectors
+export const selectSettings = (state: { settings: SettingsState }) => state.settings;
+export const selectDefaultBankAccountId = (state: { settings: SettingsState }) => state.settings.defaultBankAccountId;
+export const selectSettingsLoading = (state: { settings: SettingsState }) => state.settings.loading;
+export const selectCurrency = (state: { settings: SettingsState }) => state.settings.currency;
+export const selectDateFormat = (state: { settings: SettingsState }) => state.settings.dateFormat;
+
 export default settingsSlice.reducer;

@@ -1,12 +1,16 @@
 import { configureStore } from '@reduxjs/toolkit';
 import settingsReducer from './settingsSlice';
 import scenarioReducer from './scenarioSlice';
+import bankRecordsReducer from './bankRecordsSlice';
+import bankAccountsReducer from './bankAccountsSlice';
 
 export const makeStore = () => {
   return configureStore({
     reducer: {
       settings: settingsReducer,
       scenario: scenarioReducer,
+      bankRecords: bankRecordsReducer,
+      bankAccounts: bankAccountsReducer,
     },
   });
 };

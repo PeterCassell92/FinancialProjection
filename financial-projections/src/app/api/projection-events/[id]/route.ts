@@ -4,7 +4,12 @@ import {
   updateProjectionEvent,
   deleteProjectionEvent,
 } from '@/lib/dal/projection-events';
-import { ApiResponse, UpdateProjectionEventRequest } from '@/types';
+import {
+  ProjectionEventGetResponse,
+  ProjectionEventUpdateRequestSchema,
+  ProjectionEventPutResponse,
+  ProjectionEventDeleteResponse,
+} from '@/lib/schemas';
 
 /**
  * GET /api/projection-events/[id]
@@ -19,36 +24,40 @@ export async function GET(
     const event = await getProjectionEventById(id);
 
     if (!event) {
-      const response: ApiResponse = {
+      const response: ProjectionEventGetResponse = {
         success: false,
         error: 'Projection event not found',
       };
       return NextResponse.json(response, { status: 404 });
     }
 
-    const response: ApiResponse = {
+    // Serialize the data
+    const serializedData = {
+      id: event.id,
+      name: event.name,
+      description: event.description,
+      value: parseFloat(event.value.toString()),
+      type: event.type,
+      certainty: event.certainty,
+      payTo: event.payTo,
+      paidBy: event.paidBy,
+      date: event.date.toISOString(),
+      decisionPathId: event.decisionPathId,
+      bankAccountId: event.bankAccountId,
+      recurringRuleId: event.recurringRuleId,
+      createdAt: event.createdAt.toISOString(),
+      updatedAt: event.updatedAt.toISOString(),
+    };
+
+    const response: ProjectionEventGetResponse = {
       success: true,
-      data: {
-        id: event.id,
-        name: event.name,
-        description: event.description,
-        value: parseFloat(event.value.toString()),
-        type: event.type,
-        certainty: event.certainty,
-        payTo: event.payTo,
-        paidBy: event.paidBy,
-        date: event.date,
-        decisionPath: event.decisionPath,
-        recurringRuleId: event.recurringRuleId,
-        createdAt: event.createdAt,
-        updatedAt: event.updatedAt,
-      },
+      data: serializedData,
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching projection event:', error);
-    const response: ApiResponse = {
+    const response: ProjectionEventGetResponse = {
       success: false,
       error: 'Failed to fetch projection event',
     };
@@ -66,19 +75,31 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const body: UpdateProjectionEventRequest = await request.json();
+    const body = await request.json();
 
+    // Validate request body with Zod
+    const validation = ProjectionEventUpdateRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: ProjectionEventPutResponse = {
+        success: false,
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    const validatedData = validation.data;
     const updateData: any = {};
 
-    if (body.name !== undefined) updateData.name = body.name;
-    if (body.description !== undefined) updateData.description = body.description;
-    if (body.value !== undefined) updateData.value = body.value;
-    if (body.type !== undefined) updateData.type = body.type;
-    if (body.certainty !== undefined) updateData.certainty = body.certainty;
-    if (body.payTo !== undefined) updateData.payTo = body.payTo;
-    if (body.paidBy !== undefined) updateData.paidBy = body.paidBy;
-    if (body.date !== undefined) updateData.date = new Date(body.date);
-    if (body.decisionPath !== undefined) updateData.decisionPath = body.decisionPath;
+    if (validatedData.name !== undefined) updateData.name = validatedData.name;
+    if (validatedData.description !== undefined) updateData.description = validatedData.description;
+    if (validatedData.value !== undefined) updateData.value = validatedData.value;
+    if (validatedData.type !== undefined) updateData.type = validatedData.type;
+    if (validatedData.certainty !== undefined) updateData.certainty = validatedData.certainty;
+    if (validatedData.payTo !== undefined) updateData.payTo = validatedData.payTo;
+    if (validatedData.paidBy !== undefined) updateData.paidBy = validatedData.paidBy;
+    if (validatedData.date !== undefined) updateData.date = new Date(validatedData.date);
+    if (validatedData.bankAccountId !== undefined) updateData.bankAccountId = validatedData.bankAccountId;
+    if (validatedData.decisionPathId !== undefined) updateData.decisionPathId = validatedData.decisionPathId;
 
     const event = await updateProjectionEvent(id, updateData);
 
@@ -88,32 +109,36 @@ export async function PUT(
 
     const eventDate = event.date;
     const endDate = addMonths(eventDate, 6);
-    await recalculateBalancesFrom(eventDate, endDate);
+    await recalculateBalancesFrom(eventDate, endDate, event.bankAccountId);
 
-    const response: ApiResponse = {
+    // Serialize the response
+    const serializedData = {
+      id: event.id,
+      name: event.name,
+      description: event.description,
+      value: parseFloat(event.value.toString()),
+      type: event.type,
+      certainty: event.certainty,
+      payTo: event.payTo,
+      paidBy: event.paidBy,
+      date: event.date.toISOString(),
+      decisionPathId: event.decisionPathId,
+      bankAccountId: event.bankAccountId,
+      recurringRuleId: event.recurringRuleId,
+      createdAt: event.createdAt.toISOString(),
+      updatedAt: event.updatedAt.toISOString(),
+    };
+
+    const response: ProjectionEventPutResponse = {
       success: true,
-      data: {
-        id: event.id,
-        name: event.name,
-        description: event.description,
-        value: parseFloat(event.value.toString()),
-        type: event.type,
-        certainty: event.certainty,
-        payTo: event.payTo,
-        paidBy: event.paidBy,
-        date: event.date,
-        decisionPath: event.decisionPath,
-        recurringRuleId: event.recurringRuleId,
-        createdAt: event.createdAt,
-        updatedAt: event.updatedAt,
-      },
+      data: serializedData,
       message: 'Projection event updated successfully',
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error updating projection event:', error);
-    const response: ApiResponse = {
+    const response: ProjectionEventPutResponse = {
       success: false,
       error: 'Failed to update projection event',
     };
@@ -137,7 +162,7 @@ export async function DELETE(
     const eventToDelete = await getProjectionEventById(id);
 
     if (!eventToDelete) {
-      const response: ApiResponse = {
+      const response: ProjectionEventDeleteResponse = {
         success: false,
         error: 'Projection event not found',
       };
@@ -154,9 +179,9 @@ export async function DELETE(
     const { recalculateBalancesFrom } = await import('@/lib/calculations/balance-calculator');
 
     const endDate = addMonths(eventDate, 6);
-    await recalculateBalancesFrom(eventDate, endDate);
+    await recalculateBalancesFrom(eventDate, endDate, eventToDelete.bankAccountId);
 
-    const response: ApiResponse = {
+    const response: ProjectionEventDeleteResponse = {
       success: true,
       message: 'Projection event deleted successfully',
     };
@@ -164,7 +189,7 @@ export async function DELETE(
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error deleting projection event:', error);
-    const response: ApiResponse = {
+    const response: ProjectionEventDeleteResponse = {
       success: false,
       error: 'Failed to delete projection event',
     };

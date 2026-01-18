@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getTransactionRecords,
+  getTransactionRecordsCount,
   updateTransactionRecord,
   deleteTransactionRecord,
   UpdateTransactionRecordInput,
@@ -17,6 +18,19 @@ type SerializedTransactionRecord = Omit<TransactionRecordWithSpendingTypes, 'deb
   creditAmount: number | null;
   balance: number;
 };
+
+/**
+ * Response data for transaction records with optional pagination
+ */
+interface TransactionRecordsResponseData {
+  transactions: SerializedTransactionRecord[];
+  pagination?: {
+    page: number;
+    pageSize: number;
+    totalRecords: number;
+    totalPages: number;
+  };
+}
 
 /**
  * Convert a TransactionRecordWithSpendingTypes to a serialized version
@@ -39,7 +53,15 @@ function serializeTransactionRecord(transaction: TransactionRecordWithSpendingTy
 
 /**
  * GET /api/transaction-records
- * Get transaction records for a bank account with optional date filtering
+ * Get transaction records for a bank account with optional date filtering, description search, and pagination
+ *
+ * Query parameters:
+ * - bankAccountId (required): Bank account ID
+ * - startDate (optional): ISO date string for start of date range
+ * - endDate (optional): ISO date string for end of date range
+ * - description (optional): Partial match search on transaction description (case-insensitive)
+ * - page (optional): Page number (1-indexed, default: no pagination)
+ * - pageSize (optional): Number of records per page (default: no pagination)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -47,6 +69,9 @@ export async function GET(request: NextRequest) {
     const bankAccountId = searchParams.get('bankAccountId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const description = searchParams.get('description');
+    const pageParam = searchParams.get('page');
+    const pageSizeParam = searchParams.get('pageSize');
 
     if (!bankAccountId) {
       const response: ApiResponse = {
@@ -58,19 +83,54 @@ export async function GET(request: NextRequest) {
 
     const startDateObj = startDate ? new Date(startDate) : undefined;
     const endDateObj = endDate ? new Date(endDate) : undefined;
+    const page = pageParam ? parseInt(pageParam, 10) : undefined;
+    const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : undefined;
 
-    const transactions: TransactionRecordWithSpendingTypes[] = await getTransactionRecords(
-      bankAccountId,
-      startDateObj,
-      endDateObj
-    );
+    // Validate pagination parameters
+    if (page !== undefined && page < 1) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'page must be >= 1',
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    if (pageSize !== undefined && pageSize < 1) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'pageSize must be >= 1',
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    // Fetch transactions and total count in parallel
+    const [transactions, totalCount] = await Promise.all([
+      getTransactionRecords(bankAccountId, startDateObj, endDateObj, page, pageSize, description || undefined),
+      page && pageSize
+        ? getTransactionRecordsCount(bankAccountId, startDateObj, endDateObj, description || undefined)
+        : Promise.resolve(undefined),
+    ]);
 
     // Convert Decimal fields to numbers for JSON serialization
     const serializedTransactions: SerializedTransactionRecord[] = transactions.map(serializeTransactionRecord);
 
-    const response: ApiResponse<SerializedTransactionRecord[]> = {
+    // Build response with pagination metadata if applicable
+    const responseData: TransactionRecordsResponseData = {
+      transactions: serializedTransactions,
+    };
+
+    if (page && pageSize && totalCount !== undefined) {
+      responseData.pagination = {
+        page,
+        pageSize,
+        totalRecords: totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
+    }
+
+    const response: ApiResponse<TransactionRecordsResponseData> = {
       success: true,
-      data: serializedTransactions,
+      data: responseData,
     };
 
     return NextResponse.json(response);
@@ -105,11 +165,26 @@ export async function PATCH(request: NextRequest) {
       spendingTypeIds: body.spendingTypeIds,
     };
 
-    const transaction = await updateTransactionRecord(body.id, input);
+    await updateTransactionRecord(body.id, input);
+
+    // Fetch the updated transaction with all relations
+    const { getTransactionRecordById } = await import('@/lib/dal/transaction-records');
+    const updatedTransaction = await getTransactionRecordById(body.id);
+
+    if (!updatedTransaction) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Transaction record not found after update',
+      };
+      return NextResponse.json(response, { status: 404 });
+    }
+
+    // Serialize the transaction
+    const serialized = serializeTransactionRecord(updatedTransaction);
 
     const response: ApiResponse = {
       success: true,
-      data: transaction,
+      data: serialized,
     };
 
     return NextResponse.json(response);

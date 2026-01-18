@@ -5,8 +5,11 @@ import {
   createBankAccount,
   CreateBankAccountInput,
 } from '@/lib/dal/bank-accounts';
-import { ApiResponse } from '@/types';
-import { BankProvider } from '@prisma/client';
+import {
+  BankAccountsGetResponse,
+  BankAccountCreateRequestSchema,
+  BankAccountCreateResponse,
+} from '@/lib/schemas';
 
 /**
  * GET /api/bank-accounts
@@ -24,15 +27,27 @@ export async function GET(request: NextRequest) {
       bankAccounts = await getAllBankAccounts();
     }
 
-    const response: ApiResponse = {
+    // Serialize the data
+    const serializedData = bankAccounts.map(ba => ({
+      id: ba.id,
+      name: ba.name,
+      description: ba.description,
+      sortCode: ba.sortCode,
+      accountNumber: ba.accountNumber,
+      provider: ba.provider,
+      createdAt: ba.createdAt.toISOString(),
+      updatedAt: ba.updatedAt.toISOString(),
+    }));
+
+    const response: BankAccountsGetResponse = {
       success: true,
-      data: bankAccounts,
+      data: serializedData,
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching bank accounts:', error);
-    const response: ApiResponse = {
+    const response: BankAccountsGetResponse = {
       success: false,
       error: 'Failed to fetch bank accounts',
     };
@@ -48,37 +63,43 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
-    if (!body.name || !body.sortCode || !body.accountNumber || !body.provider) {
-      const response: ApiResponse = {
+    // Validate request body with Zod
+    const validation = BankAccountCreateRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: BankAccountCreateResponse = {
         success: false,
-        error: 'Missing required fields: name, sortCode, accountNumber, provider',
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
       };
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Validate provider enum
-    if (!Object.values(BankProvider).includes(body.provider)) {
-      const response: ApiResponse = {
-        success: false,
-        error: `Invalid provider. Must be one of: ${Object.values(BankProvider).join(', ')}`,
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
+    const validatedData = validation.data;
     const input: CreateBankAccountInput = {
-      name: body.name,
-      description: body.description,
-      sortCode: body.sortCode,
-      accountNumber: body.accountNumber,
-      provider: body.provider,
+      name: validatedData.name,
+      description: validatedData.description,
+      sortCode: validatedData.sortCode,
+      accountNumber: validatedData.accountNumber,
+      provider: validatedData.provider,
     };
 
     const bankAccount = await createBankAccount(input);
 
-    const response: ApiResponse = {
+    // Serialize the response
+    const serializedData = {
+      id: bankAccount.id,
+      name: bankAccount.name,
+      description: bankAccount.description,
+      sortCode: bankAccount.sortCode,
+      accountNumber: bankAccount.accountNumber,
+      provider: bankAccount.provider,
+      createdAt: bankAccount.createdAt.toISOString(),
+      updatedAt: bankAccount.updatedAt.toISOString(),
+    };
+
+    const response: BankAccountCreateResponse = {
       success: true,
-      data: bankAccount,
+      data: serializedData,
+      message: 'Bank account created successfully',
     };
 
     return NextResponse.json(response, { status: 201 });
@@ -87,14 +108,14 @@ export async function POST(request: NextRequest) {
 
     // Check for unique constraint violation
     if (error.code === 'P2002') {
-      const response: ApiResponse = {
+      const response: BankAccountCreateResponse = {
         success: false,
         error: 'Bank account with this sort code and account number already exists',
       };
       return NextResponse.json(response, { status: 409 });
     }
 
-    const response: ApiResponse = {
+    const response: BankAccountCreateResponse = {
       success: false,
       error: 'Failed to create bank account',
     };

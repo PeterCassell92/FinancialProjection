@@ -13,8 +13,8 @@ import {
   getUploadOperationById,
   updateUploadOperation,
 } from '@/lib/dal/upload-operations';
-import { ApiResponse } from '@/types';
-import { BankProvider } from '@prisma/client';
+import { CsvUploadResponse } from '@/lib/schemas';
+import { BankProvider, TransactionType } from '@prisma/client';
 import prisma from '@/lib/prisma';
 
 /**
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     const deleteOverlapping = body.deleteOverlapping || false;
 
     if (!uploadOperationId) {
-      const response: ApiResponse = {
+      const response: CsvUploadResponse = {
         success: false,
         error: 'Missing required field: uploadOperationId',
       };
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     // Get the upload operation
     const uploadOperation = await getUploadOperationById(uploadOperationId);
     if (!uploadOperation) {
-      const response: ApiResponse = {
+      const response: CsvUploadResponse = {
         success: false,
         error: 'Upload operation not found',
       };
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     // Verify the upload operation passed validity check
     if (uploadOperation.operationStatus !== 'VALIDITY_CHECK_PASSED') {
-      const response: ApiResponse = {
+      const response: CsvUploadResponse = {
         success: false,
         error: 'Upload operation has not passed validity check',
       };
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     // Verify we have the saved file
     if (!uploadOperation.localFileLocation) {
-      const response: ApiResponse = {
+      const response: CsvUploadResponse = {
         success: false,
         error: 'Upload operation missing saved file location',
       };
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         errorMessage: parseResult.errors.join('; ') || 'Failed to parse CSV',
       });
 
-      const response: ApiResponse = {
+      const response: CsvUploadResponse = {
         success: false,
         error: 'Failed to parse CSV',
         data: {
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
           errorMessage: `Bank account not found: ${providedBankAccountId}`,
         });
 
-        const response: ApiResponse = {
+        const response: CsvUploadResponse = {
           success: false,
           error: `Bank account not found: ${providedBankAccountId}`,
         };
@@ -155,15 +155,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Convert parsed transactions to DAL format
+    // Include uploadOperationId and csvRowNumber to create junction table entries
     const transactionInputs: CreateTransactionRecordInput[] = parseResult.transactions.map(
-      (tx) => ({
+      (tx, index) => ({
         transactionDate: tx.transactionDate,
-        transactionType: tx.transactionType,
+        transactionType: tx.transactionType as TransactionType, // Parser returns string, cast to TransactionType enum
         transactionDescription: tx.transactionDescription,
         debitAmount: tx.debitAmount ?? undefined,
         creditAmount: tx.creditAmount ?? undefined,
         balance: tx.balance,
         bankAccountId: bankAccount.id,
+        uploadOperationId: uploadOperationId,
+        csvRowNumber: index + 1, // CSV row numbers are 1-indexed (or use header offset if needed)
       })
     );
 
@@ -176,7 +179,7 @@ export async function POST(request: NextRequest) {
       numberOfRecords: insertedCount,
     });
 
-    const response: ApiResponse = {
+    const response: CsvUploadResponse = {
       success: true,
       data: {
         uploadOperationId,
@@ -206,7 +209,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const response: ApiResponse = {
+    const response: CsvUploadResponse = {
       success: false,
       error: 'Failed to process CSV upload',
       data: {

@@ -25,6 +25,9 @@ export async function createSettings(
       initialBankBalance,
       initialBalanceDate: startOfDay(initialBalanceDate || new Date()),
     },
+    include: {
+      defaultBankAccount: true,
+    },
   });
 }
 

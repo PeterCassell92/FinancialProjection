@@ -48,9 +48,9 @@ export async function getRecurringEventRuleById(id: string) {
 /**
  * Get all recurring event rules by decision path
  */
-export async function getRecurringEventRulesByDecisionPath(decisionPath: string) {
+export async function getRecurringEventRulesByDecisionPath(decisionPathId: string) {
   return await prisma.recurringProjectionEventRule.findMany({
-    where: { decisionPath },
+    where: { decisionPathId },
     include: {
       _count: {
         select: { projectionEvents: true },
@@ -66,14 +66,6 @@ export async function getRecurringEventRulesByDecisionPath(decisionPath: string)
  * Create a new recurring event rule (without generating events)
  */
 export async function createRecurringEventRule(input: CreateRecurringEventRuleInput) {
-  // If decisionPath is provided, get or create it
-  let decisionPathId: string | undefined;
-  if (input.decisionPath) {
-    const { getOrCreateDecisionPath } = await import('./decision-paths');
-    const decisionPath = await getOrCreateDecisionPath(input.decisionPath);
-    decisionPathId = decisionPath.id;
-  }
-
   return await prisma.recurringProjectionEventRule.create({
     data: {
       name: input.name,
@@ -84,14 +76,10 @@ export async function createRecurringEventRule(input: CreateRecurringEventRuleIn
       payTo: input.payTo,
       paidBy: input.paidBy,
       bankAccountId: input.bankAccountId,
-      decisionPathId,
+      decisionPathId: input.decisionPathId,
       startDate: input.startDate,
       endDate: input.endDate,
       frequency: input.frequency,
-    },
-    include: {
-      decisionPath: true,
-      bankAccount: true,
     },
   });
 }
@@ -170,7 +158,7 @@ export async function generateProjectionEventsFromRule(ruleId: string): Promise<
         paidBy: rule.paidBy || undefined,
         date: adjustedDate,
         bankAccountId: rule.bankAccountId,
-        decisionPath: rule.decisionPath || undefined,
+        decisionPathId: rule.decisionPathId,
         recurringRuleId: ruleId,
       })
     )

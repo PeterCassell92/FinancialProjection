@@ -4,7 +4,11 @@ import {
   createDecisionPath,
   getDecisionPathsWithUsage,
 } from '@/lib/dal/decision-paths';
-import { ApiResponse } from '@/types';
+import {
+  DecisionPathsGetResponse,
+  DecisionPathCreateRequestSchema,
+  DecisionPathCreateResponse,
+} from '@/lib/schemas';
 
 /**
  * GET /api/decision-paths
@@ -22,15 +26,23 @@ export async function GET(request: NextRequest) {
       decisionPaths = await getAllDecisionPaths();
     }
 
-    const response: ApiResponse = {
+    // Serialize the data
+    const serializedData = decisionPaths.map(dp => ({
+      id: dp.id,
+      name: dp.name,
+      description: dp.description,
+      createdAt: dp.createdAt.toISOString(),
+    }));
+
+    const response: DecisionPathsGetResponse = {
       success: true,
-      data: decisionPaths,
+      data: serializedData,
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching decision paths:', error);
-    const response: ApiResponse = {
+    const response: DecisionPathsGetResponse = {
       success: false,
       error: 'Failed to fetch decision paths',
     };
@@ -46,29 +58,40 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    if (!body.name || typeof body.name !== 'string') {
-      const response: ApiResponse = {
+    // Validate request body with Zod
+    const validation = DecisionPathCreateRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: DecisionPathCreateResponse = {
         success: false,
-        error: 'name is required and must be a string',
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
       };
       return NextResponse.json(response, { status: 400 });
     }
 
+    const validatedData = validation.data;
     const decisionPath = await createDecisionPath(
-      body.name,
-      body.description
+      validatedData.name,
+      validatedData.description
     );
 
-    const response: ApiResponse = {
+    // Serialize the response
+    const serializedData = {
+      id: decisionPath.id,
+      name: decisionPath.name,
+      description: decisionPath.description,
+      createdAt: decisionPath.createdAt.toISOString(),
+    };
+
+    const response: DecisionPathCreateResponse = {
       success: true,
-      data: decisionPath,
+      data: serializedData,
       message: 'Decision path created successfully',
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error creating decision path:', error);
-    const response: ApiResponse = {
+    const response: DecisionPathCreateResponse = {
       success: false,
       error: 'Failed to create decision path',
     };

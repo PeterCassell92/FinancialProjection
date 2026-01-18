@@ -2,6 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAppDispatch, useAppSelector } from '@/lib/redux/hooks';
+import {
+  fetchSpendingTypes,
+  fetchTransactions,
+  updateTransaction,
+  deleteTransaction as deleteTransactionAction,
+  selectSpendingTypes,
+  selectSpendingTypesLoading,
+  selectTransactions,
+  selectTransactionsLoading,
+  setSelectedBankAccountId,
+  selectSelectedBankAccountId,
+  selectEnableTransactionDeletion,
+} from '@/lib/redux/bankRecordsSlice';
+import {
+  fetchBankAccounts,
+  selectBankAccounts,
+  selectBankAccountsLoading,
+} from '@/lib/redux/bankAccountsSlice';
+import {
+  fetchSettings,
+  selectDefaultBankAccountId,
+} from '@/lib/redux/settingsSlice';
 import Header from '@/components/Header';
 import SpendingTypeManagement from '@/components/SpendingTypeManagement';
 import { Button } from '@/components/ui/button';
@@ -14,7 +37,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Pencil, Save, X, Trash2 } from 'lucide-react';
+import { Pencil, Save, X, Trash2, Settings, Upload } from 'lucide-react';
+import AccountSettingsModal from '@/components/AccountSettingsModal';
+import TransactionRecordsTableFilters from '@/components/TransactionRecordsTableFilters';
 
 interface SpendingType {
   id: string;
@@ -43,89 +68,60 @@ interface TransactionRecord {
   }>;
 }
 
-interface BankAccount {
-  id: string;
-  name: string;
-  sortCode: string;
-  accountNumber: string;
-}
-
 export default function TransactionsPage() {
   const router = useRouter();
-  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [spendingTypes, setSpendingTypes] = useState<SpendingType[]>([]);
-  const [selectedBankAccount, setSelectedBankAccount] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+
+  // Redux state
+  const transactions = useAppSelector(selectTransactions);
+  const spendingTypes = useAppSelector(selectSpendingTypes);
+  const spendingTypesLoading = useAppSelector(selectSpendingTypesLoading);
+  const transactionsLoading = useAppSelector(selectTransactionsLoading);
+  const selectedBankAccount = useAppSelector(selectSelectedBankAccountId);
+  const bankAccounts = useAppSelector(selectBankAccounts);
+  const bankAccountsLoading = useAppSelector(selectBankAccountsLoading);
+  const defaultBankAccountId = useAppSelector(selectDefaultBankAccountId);
+  const enableTransactionDeletion = useAppSelector(selectEnableTransactionDeletion);
+
+  // Local state
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
   const [editNotes, setEditNotes] = useState<string>('');
   const [editSpendingTypes, setEditSpendingTypes] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
 
-  // Fetch initial data
+  // Fetch initial data from Redux
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch bank accounts
-        const accountsResponse = await fetch('/api/bank-accounts');
-        const accountsData = await accountsResponse.json();
-        if (accountsData.success) {
-          setBankAccounts(accountsData.data || []);
-        }
+    // Fetch settings if not already loaded
+    if (defaultBankAccountId === null) {
+      dispatch(fetchSettings());
+    }
 
-        // Fetch spending types
-        const typesResponse = await fetch('/api/spending-types');
-        const typesData = await typesResponse.json();
-        if (typesData.success) {
-          setSpendingTypes(typesData.data || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Fetch bank accounts if not already loaded
+    if (bankAccounts.length === 0) {
+      dispatch(fetchBankAccounts());
+    }
 
-    fetchData();
-  }, []);
+    // Fetch spending types if not already loaded
+    if (spendingTypes.length === 0) {
+      dispatch(fetchSpendingTypes());
+    }
+  }, [dispatch, spendingTypes.length, bankAccounts.length, defaultBankAccountId]);
+
+  // Auto-select default bank account when available
+  useEffect(() => {
+    if (defaultBankAccountId && !selectedBankAccount) {
+      dispatch(setSelectedBankAccountId(defaultBankAccountId));
+    }
+  }, [dispatch, defaultBankAccountId, selectedBankAccount]);
 
   // Fetch transactions when bank account changes
   useEffect(() => {
     if (selectedBankAccount) {
-      fetchTransactions(selectedBankAccount);
-    } else {
-      setTransactions([]);
+      dispatch(fetchTransactions(selectedBankAccount));
     }
-  }, [selectedBankAccount]);
-
-  const fetchTransactions = async (bankAccountId: string) => {
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/transaction-records?bankAccountId=${bankAccountId}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setTransactions(data.data || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch transactions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchSpendingTypes = async () => {
-    try {
-      const typesResponse = await fetch('/api/spending-types');
-      const typesData = await typesResponse.json();
-      if (typesData.success) {
-        setSpendingTypes(typesData.data || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch spending types:', error);
-    }
-  };
+  }, [dispatch, selectedBankAccount]);
 
   const handleEdit = (transaction: TransactionRecord) => {
     setEditingTransaction(transaction.id);
@@ -146,20 +142,7 @@ export default function TransactionsPage() {
 
     setDeleting(transactionId);
     try {
-      const response = await fetch(`/api/transaction-records?id=${transactionId}`, {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Refresh transactions from server
-        if (selectedBankAccount) {
-          await fetchTransactions(selectedBankAccount);
-        }
-      } else {
-        alert(data.error || 'Failed to delete transaction');
-      }
+      await dispatch(deleteTransactionAction(transactionId)).unwrap();
     } catch (error) {
       console.error('Failed to delete transaction:', error);
       alert('Failed to delete transaction');
@@ -171,27 +154,14 @@ export default function TransactionsPage() {
   const handleSave = async (transactionId: string) => {
     setSaving(true);
     try {
-      const response = await fetch('/api/transaction-records', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: transactionId,
-          notes: editNotes || undefined,
-          spendingTypeIds: editSpendingTypes.length > 0 ? editSpendingTypes : undefined,
-        }),
-      });
+      await dispatch(updateTransaction({
+        id: transactionId,
+        notes: editNotes || undefined,
+        spendingTypeIds: editSpendingTypes.length > 0 ? editSpendingTypes : undefined,
+      })).unwrap();
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Refresh transactions from server to ensure consistency
-        if (selectedBankAccount) {
-          await fetchTransactions(selectedBankAccount);
-        }
-        handleCancelEdit();
-      } else {
-        alert(data.error || 'Failed to update transaction');
-      }
+      // No need to refetch - optimistic update handles it
+      handleCancelEdit();
     } catch (error) {
       console.error('Failed to save transaction:', error);
       alert('Failed to save transaction');
@@ -234,39 +204,70 @@ export default function TransactionsPage() {
         </div>
 
         {/* Two-column layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
           {/* Main content - transactions table */}
-          <div className="lg:col-span-2">{/* Transactions content will go here */}
+          <div>{/* Transactions content will go here */}
 
         {/* Bank Account Filter */}
         <div className="bg-white rounded-lg shadow p-6 mb-8" data-testid="filter-section">
-          <div className="space-y-2">
-            <Label htmlFor="bank-account-filter">Select Bank Account</Label>
-            <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount}>
-              <SelectTrigger id="bank-account-filter" data-testid="bank-account-filter">
-                <SelectValue placeholder="Choose a bank account..." />
-              </SelectTrigger>
-              <SelectContent>
-                {bankAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name} ({account.sortCode} - {account.accountNumber})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-start gap-3">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="bank-account-filter">Select Bank Account</Label>
+              <Select value={selectedBankAccount || ''} onValueChange={(value) => dispatch(setSelectedBankAccountId(value))}>
+                <SelectTrigger id="bank-account-filter" data-testid="bank-account-filter">
+                  <SelectValue placeholder="Choose a bank account..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {bankAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} ({account.sortCode} - {account.accountNumber})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedBankAccount && (
+              <button
+                onClick={() => setShowAccountSettings(true)}
+                className="mt-8 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                title="Account settings"
+                data-testid="account-settings-button"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Transactions Table */}
         {selectedBankAccount && (
           <div className="bg-white rounded-lg shadow overflow-hidden" data-testid="transactions-section">
-            {loading ? (
+            {transactionsLoading ? (
               <div className="text-center py-12 text-gray-500">
                 Loading transactions...
               </div>
             ) : transactions.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                No transactions found for this account. Upload a bank statement to get started.
+              <div className="text-center py-16 px-4">
+                <div className="max-w-md mx-auto">
+                  <div className="text-gray-400 mb-4">
+                    <Upload className="h-16 w-16 mx-auto" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    No Transactions Found
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Upload a bank statement to get started with tracking your transactions
+                  </p>
+                  <Button
+                    onClick={() => router.push('/bank-records')}
+                    size="lg"
+                    className="gap-2"
+                    data-testid="upload-csv-cta"
+                  >
+                    <Upload className="h-5 w-5" />
+                    Upload Bank Statement
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -278,7 +279,7 @@ export default function TransactionsPage() {
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Type</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Paid Out</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Paid In</th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Balance</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900" title="Balance After Transaction">Balance</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Spending Types</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Notes</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 sticky right-0 bg-gray-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">Actions</th>
@@ -412,15 +413,17 @@ export default function TransactionsPage() {
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleDelete(transaction.id)}
-                                disabled={deleting === transaction.id}
-                                title="Delete transaction"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {enableTransactionDeletion && (
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleDelete(transaction.id)}
+                                  disabled={deleting === transaction.id}
+                                  title="Delete transaction"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </td>
@@ -442,15 +445,31 @@ export default function TransactionsPage() {
         )}
           </div>
 
-          {/* Sidebar - Spending Type Management */}
-          <div className="lg:col-span-1">
+          {/* Sidebar - Filters and Spending Type Management */}
+          <div className="space-y-6">
+            {/* Filters Section */}
+            <TransactionRecordsTableFilters />
+
+            {/* Spending Type Management */}
             <SpendingTypeManagement
               spendingTypes={spendingTypes}
-              onSpendingTypeCreated={fetchSpendingTypes}
+              onSpendingTypeCreated={() => dispatch(fetchSpendingTypes())}
             />
           </div>
         </div>
       </div>
+
+      {/* Account Settings Modal */}
+      {selectedBankAccount && (
+        <AccountSettingsModal
+          isOpen={showAccountSettings}
+          onClose={() => setShowAccountSettings(false)}
+          accountId={selectedBankAccount}
+          accountName={
+            bankAccounts.find((acc) => acc.id === selectedBankAccount)?.name || 'Unknown Account'
+          }
+        />
+      )}
     </div>
   );
 }

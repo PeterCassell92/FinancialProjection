@@ -1,6 +1,17 @@
 import { TransactionType } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
 
+interface HalifaxCSVRow {
+  'Transaction Date': string;
+  'Transaction Type': string;
+  'Sort Code': string;
+  'Account Number': string;
+  'Transaction Description': string;
+  'Debit Amount': string;
+  'Credit Amount': string;
+  'Balance': string;
+}
+
 export interface ParsedHalifaxTransaction {
   transactionDate: Date;
   transactionType: TransactionType;
@@ -89,7 +100,7 @@ export function parseHalifaxCSV(csvContent: string): HalifaxCSVParseResult {
       columns: true,
       skip_empty_lines: true,
       trim: true,
-    });
+    }) as HalifaxCSVRow[];
 
     result.metadata.totalRows = records.length;
 

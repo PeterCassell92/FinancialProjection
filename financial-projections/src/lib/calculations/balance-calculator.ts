@@ -38,6 +38,11 @@ async function findStartingBalanceAndDate(
 
   // No actual balance found - fall back to initial balance from settings
   const settings = await getOrCreateSettings();
+
+  if (!settings) {
+    throw new Error('Failed to get or create settings');
+  }
+
   return {
     balance: parseFloat(settings.initialBankBalance.toString()),
     date: startOfDay(settings.initialBalanceDate),

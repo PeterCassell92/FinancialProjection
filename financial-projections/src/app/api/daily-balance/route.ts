@@ -5,7 +5,19 @@ import {
   setActualBalance,
   clearActualBalance,
 } from '@/lib/dal/daily-balance';
-import { ApiResponse, SetActualBalanceRequest } from '@/types';
+import {
+  DailyBalanceGetResponse,
+  DailyBalancesGetResponse,
+  DailyBalanceSetActualRequestSchema,
+  DailyBalanceSetActualResponse,
+} from '@/lib/schemas';
+
+// Define a simple response type for DELETE operations
+type ApiResponse = {
+  success: boolean;
+  error?: string;
+  message?: string;
+};
 
 /**
  * GET /api/daily-balance
@@ -21,7 +33,7 @@ export async function GET(request: NextRequest) {
     const bankAccountId = searchParams.get('bankAccountId');
 
     if (!bankAccountId) {
-      const response: ApiResponse = {
+      const response: DailyBalancesGetResponse = {
         success: false,
         error: 'bankAccountId query parameter is required',
       };
@@ -34,32 +46,36 @@ export async function GET(request: NextRequest) {
       const balance = await getDailyBalance(date, bankAccountId);
 
       if (!balance) {
-        const response: ApiResponse = {
+        const response: DailyBalanceGetResponse = {
           success: false,
           error: 'Daily balance not found for this date and bank account',
         };
         return NextResponse.json(response, { status: 404 });
       }
 
-      const response: ApiResponse = {
+      // Serialize the data
+      const serializedData = {
+        id: balance.id,
+        date: balance.date.toISOString(),
+        expectedBalance: parseFloat(balance.expectedBalance.toString()),
+        actualBalance: balance.actualBalance
+          ? parseFloat(balance.actualBalance.toString())
+          : null,
+        bankAccountId: balance.bankAccountId,
+        createdAt: balance.createdAt.toISOString(),
+        updatedAt: balance.updatedAt.toISOString(),
+      };
+
+      const response: DailyBalanceGetResponse = {
         success: true,
-        data: {
-          id: balance.id,
-          date: balance.date,
-          expectedBalance: parseFloat(balance.expectedBalance.toString()),
-          actualBalance: balance.actualBalance
-            ? parseFloat(balance.actualBalance.toString())
-            : undefined,
-          createdAt: balance.createdAt,
-          updatedAt: balance.updatedAt,
-        },
+        data: serializedData,
       };
 
       return NextResponse.json(response);
     }
 
     if (!startDateParam || !endDateParam) {
-      const response: ApiResponse = {
+      const response: DailyBalancesGetResponse = {
         success: false,
         error: 'startDate and endDate query parameters are required',
       };
@@ -71,24 +87,28 @@ export async function GET(request: NextRequest) {
 
     const balances = await getDailyBalances(startDate, endDate, bankAccountId);
 
-    const response: ApiResponse = {
+    // Serialize the data
+    const serializedData = balances.map((balance) => ({
+      id: balance.id,
+      date: balance.date.toISOString(),
+      expectedBalance: parseFloat(balance.expectedBalance.toString()),
+      actualBalance: balance.actualBalance
+        ? parseFloat(balance.actualBalance.toString())
+        : null,
+      bankAccountId: balance.bankAccountId,
+      createdAt: balance.createdAt.toISOString(),
+      updatedAt: balance.updatedAt.toISOString(),
+    }));
+
+    const response: DailyBalancesGetResponse = {
       success: true,
-      data: balances.map((balance) => ({
-        id: balance.id,
-        date: balance.date,
-        expectedBalance: parseFloat(balance.expectedBalance.toString()),
-        actualBalance: balance.actualBalance
-          ? parseFloat(balance.actualBalance.toString())
-          : undefined,
-        createdAt: balance.createdAt,
-        updatedAt: balance.updatedAt,
-      })),
+      data: serializedData,
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching daily balances:', error);
-    const response: ApiResponse = {
+    const response: DailyBalancesGetResponse = {
       success: false,
       error: 'Failed to fetch daily balances',
     };
@@ -102,18 +122,22 @@ export async function GET(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const body: SetActualBalanceRequest & { bankAccountId: string } = await request.json();
+    const body = await request.json();
 
-    if (!body.date || typeof body.actualBalance !== 'number' || !body.bankAccountId) {
-      const response: ApiResponse = {
+    // Validate request body with Zod
+    const validation = DailyBalanceSetActualRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: DailyBalanceSetActualResponse = {
         success: false,
-        error: 'date, actualBalance, and bankAccountId are required',
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
       };
       return NextResponse.json(response, { status: 400 });
     }
 
-    const date = new Date(body.date);
-    const balance = await setActualBalance(date, body.bankAccountId, body.actualBalance);
+    const validatedData = validation.data;
+
+    const date = new Date(validatedData.date);
+    const balance = await setActualBalance(date, validatedData.bankAccountId, validatedData.actualBalance);
 
     // Recalculate balances from the next day forward (6 months) for this bank account
     const { addDays, addMonths } = await import('date-fns');
@@ -121,27 +145,31 @@ export async function PUT(request: NextRequest) {
 
     const nextDay = addDays(date, 1);
     const endDate = addMonths(nextDay, 6);
-    await recalculateBalancesFrom(nextDay, endDate, body.bankAccountId);
+    await recalculateBalancesFrom(nextDay, endDate, validatedData.bankAccountId);
 
-    const response: ApiResponse = {
+    // Serialize the response
+    const serializedData = {
+      id: balance.id,
+      date: balance.date.toISOString(),
+      expectedBalance: parseFloat(balance.expectedBalance.toString()),
+      actualBalance: balance.actualBalance
+        ? parseFloat(balance.actualBalance.toString())
+        : null,
+      bankAccountId: balance.bankAccountId,
+      createdAt: balance.createdAt.toISOString(),
+      updatedAt: balance.updatedAt.toISOString(),
+    };
+
+    const response: DailyBalanceSetActualResponse = {
       success: true,
-      data: {
-        id: balance.id,
-        date: balance.date,
-        expectedBalance: parseFloat(balance.expectedBalance.toString()),
-        actualBalance: balance.actualBalance
-          ? parseFloat(balance.actualBalance.toString())
-          : undefined,
-        createdAt: balance.createdAt,
-        updatedAt: balance.updatedAt,
-      },
+      data: serializedData,
       message: 'Actual balance set successfully',
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error setting actual balance:', error);
-    const response: ApiResponse = {
+    const response: DailyBalanceSetActualResponse = {
       success: false,
       error: 'Failed to set actual balance',
     };

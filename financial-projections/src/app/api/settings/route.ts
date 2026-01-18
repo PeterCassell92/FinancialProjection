@@ -7,7 +7,13 @@ import {
   updateSettings,
 } from '@/lib/dal/settings';
 import { setActualBalance } from '@/lib/dal/daily-balance';
-import { ApiResponse, UpdateSettingsRequest } from '@/types';
+import {
+  SettingsGetResponse,
+  SettingsPutRequestSchema,
+  SettingsPutResponse,
+  SettingsPatchRequestSchema,
+  SettingsPatchResponse,
+} from '@/lib/schemas';
 import { startOfDay } from 'date-fns';
 import { Currency, DateFormat } from '@prisma/client';
 
@@ -21,28 +27,38 @@ export async function GET() {
 
     // If no settings exist, create a record with null balance (first-time user)
     if (!settings) {
-      settings = await createSettings(0); // This creates with today's date as initialBalanceDate
+      await createSettings(0); // This creates with today's date as initialBalanceDate
+      settings = await getSettings(); // Fetch again to get the full object with includes
     }
 
-    const response: ApiResponse = {
+    // At this point settings should exist
+    if (!settings) {
+      const response: SettingsGetResponse = {
+        success: false,
+        error: 'Failed to create settings',
+      };
+      return NextResponse.json(response, { status: 500 });
+    }
+
+    const response: SettingsGetResponse = {
       success: true,
       data: {
         id: settings.id,
         // Return null if balance is 0 (indicating not set by user)
-        initialBankBalance: settings.initialBankBalance.toString() === '0' ? null : parseFloat(settings.initialBankBalance.toString()),
-        initialBalanceDate: settings.initialBalanceDate,
+        initialBankBalance: settings.initialBankBalance.toString() === '0' ? 0 : parseFloat(settings.initialBankBalance.toString()),
+        initialBalanceDate: settings.initialBalanceDate.toISOString(),
         currency: settings.currency,
         dateFormat: settings.dateFormat,
         defaultBankAccountId: settings.defaultBankAccountId,
-        createdAt: settings.createdAt,
-        updatedAt: settings.updatedAt,
+        createdAt: settings.createdAt.toISOString(),
+        updatedAt: settings.updatedAt.toISOString(),
       },
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching settings:', error);
-    const response: ApiResponse = {
+    const response: SettingsGetResponse = {
       success: false,
       error: 'Failed to fetch settings',
     };
@@ -56,22 +72,26 @@ export async function GET() {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const body: UpdateSettingsRequest = await request.json();
+    const body = await request.json();
 
-    if (typeof body.initialBankBalance !== 'number') {
-      const response: ApiResponse = {
+    // Validate request body with Zod
+    const validation = SettingsPutRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: SettingsPutResponse = {
         success: false,
-        error: 'initialBankBalance must be a number',
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
       };
       return NextResponse.json(response, { status: 400 });
     }
 
+    const validatedData = validation.data;
+
     // Parse optional date
     let balanceDate: Date | undefined;
-    if (body.initialBalanceDate) {
-      balanceDate = new Date(body.initialBalanceDate);
+    if (validatedData.initialBalanceDate) {
+      balanceDate = new Date(validatedData.initialBalanceDate);
       if (isNaN(balanceDate.getTime())) {
-        const response: ApiResponse = {
+        const response: SettingsPutResponse = {
           success: false,
           error: 'initialBalanceDate must be a valid date',
         };
@@ -84,14 +104,22 @@ export async function PUT(request: NextRequest) {
 
     // Update settings
     const currentSettings = await getOrCreateSettings();
+    if (!currentSettings) {
+      const response: SettingsPutResponse = {
+        success: false,
+        error: 'Failed to get or create settings',
+      };
+      return NextResponse.json(response, { status: 500 });
+    }
+
     const updatedSettings = await updateSettings(
       currentSettings.id,
       {
-        initialBankBalance: body.initialBankBalance,
+        initialBankBalance: validatedData.initialBankBalance,
         initialBalanceDate: effectiveDate,
-        currency: body.currency as Currency | undefined,
-        dateFormat: body.dateFormat as DateFormat | undefined,
-        defaultBankAccountId: body.defaultBankAccountId,
+        currency: validatedData.currency as Currency | undefined,
+        dateFormat: validatedData.dateFormat as DateFormat | undefined,
+        defaultBankAccountId: validatedData.defaultBankAccountId ?? undefined,
       }
     );
 
@@ -102,23 +130,23 @@ export async function PUT(request: NextRequest) {
       await setActualBalance(
         effectiveDate,
         updatedSettings.defaultBankAccountId,
-        body.initialBankBalance
+        validatedData.initialBankBalance
       );
     }
 
-    const response: ApiResponse = {
+    const response: SettingsPutResponse = {
       success: true,
       data: {
         id: updatedSettings.id,
         initialBankBalance: parseFloat(
           updatedSettings.initialBankBalance.toString()
         ),
-        initialBalanceDate: updatedSettings.initialBalanceDate,
+        initialBalanceDate: updatedSettings.initialBalanceDate.toISOString(),
         currency: updatedSettings.currency,
         dateFormat: updatedSettings.dateFormat,
         defaultBankAccountId: updatedSettings.defaultBankAccountId,
-        createdAt: updatedSettings.createdAt,
-        updatedAt: updatedSettings.updatedAt,
+        createdAt: updatedSettings.createdAt.toISOString(),
+        updatedAt: updatedSettings.updatedAt.toISOString(),
       },
       message: 'Settings updated successfully',
     };
@@ -126,7 +154,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error updating settings:', error);
-    const response: ApiResponse = {
+    const response: SettingsPutResponse = {
       success: false,
       error: 'Failed to update settings',
     };
@@ -142,45 +170,48 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate currency
-    if (body.currency && !['GBP', 'USD'].includes(body.currency)) {
-      const response: ApiResponse = {
+    // Validate request body with Zod
+    const validation = SettingsPatchRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: SettingsPatchResponse = {
         success: false,
-        error: 'currency must be either GBP or USD',
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
       };
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Validate dateFormat
-    if (body.dateFormat && !['UK', 'US'].includes(body.dateFormat)) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'dateFormat must be either UK or US',
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
+    const validatedData = validation.data;
 
     // Get current settings
     const currentSettings = await getOrCreateSettings();
+    if (!currentSettings) {
+      const response: SettingsPatchResponse = {
+        success: false,
+        error: 'Failed to get or create settings',
+      };
+      return NextResponse.json(response, { status: 500 });
+    }
 
     // Update only the provided fields
     const updatedSettings = await updateSettings(currentSettings.id, {
-      currency: body.currency as Currency | undefined,
-      dateFormat: body.dateFormat as DateFormat | undefined,
-      defaultBankAccountId: body.defaultBankAccountId,
+      initialBankBalance: validatedData.initialBankBalance,
+      initialBalanceDate: validatedData.initialBalanceDate ? new Date(validatedData.initialBalanceDate) : undefined,
+      currency: validatedData.currency as Currency | undefined,
+      dateFormat: validatedData.dateFormat as DateFormat | undefined,
+      defaultBankAccountId: validatedData.defaultBankAccountId ?? undefined,
     });
 
-    const response: ApiResponse = {
+    const response: SettingsPatchResponse = {
       success: true,
       data: {
         id: updatedSettings.id,
         initialBankBalance: parseFloat(updatedSettings.initialBankBalance.toString()),
-        initialBalanceDate: updatedSettings.initialBalanceDate,
+        initialBalanceDate: updatedSettings.initialBalanceDate.toISOString(),
         currency: updatedSettings.currency,
         dateFormat: updatedSettings.dateFormat,
         defaultBankAccountId: updatedSettings.defaultBankAccountId,
-        createdAt: updatedSettings.createdAt,
-        updatedAt: updatedSettings.updatedAt,
+        createdAt: updatedSettings.createdAt.toISOString(),
+        updatedAt: updatedSettings.updatedAt.toISOString(),
       },
       message: 'Settings updated successfully',
     };
@@ -188,7 +219,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error updating settings:', error);
-    const response: ApiResponse = {
+    const response: SettingsPatchResponse = {
       success: false,
       error: 'Failed to update settings',
     };

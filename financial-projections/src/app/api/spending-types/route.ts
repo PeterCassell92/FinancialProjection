@@ -5,7 +5,11 @@ import {
   createSpendingType,
   CreateSpendingTypeInput,
 } from '@/lib/dal/spending-types';
-import { ApiResponse } from '@/types';
+import {
+  SpendingTypesGetResponse,
+  SpendingTypeCreateRequestSchema,
+  SpendingTypeCreateResponse,
+} from '@/lib/schemas';
 
 /**
  * GET /api/spending-types
@@ -23,15 +27,25 @@ export async function GET(request: NextRequest) {
       spendingTypes = await getAllSpendingTypes();
     }
 
-    const response: ApiResponse = {
+    // Serialize the data
+    const serializedData = spendingTypes.map(st => ({
+      id: st.id,
+      name: st.name,
+      description: st.description,
+      color: st.color,
+      createdAt: st.createdAt.toISOString(),
+      updatedAt: st.updatedAt.toISOString(),
+    }));
+
+    const response: SpendingTypesGetResponse = {
       success: true,
-      data: spendingTypes,
+      data: serializedData,
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching spending types:', error);
-    const response: ApiResponse = {
+    const response: SpendingTypesGetResponse = {
       success: false,
       error: 'Failed to fetch spending types',
     };
@@ -47,25 +61,39 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    if (!body.name) {
-      const response: ApiResponse = {
+    // Validate request body with Zod
+    const validation = SpendingTypeCreateRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: SpendingTypeCreateResponse = {
         success: false,
-        error: 'Missing required field: name',
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
       };
       return NextResponse.json(response, { status: 400 });
     }
 
+    const validatedData = validation.data;
     const input: CreateSpendingTypeInput = {
-      name: body.name,
-      description: body.description,
-      color: body.color,
+      name: validatedData.name,
+      description: validatedData.description,
+      color: validatedData.color,
     };
 
     const spendingType = await createSpendingType(input);
 
-    const response: ApiResponse = {
+    // Serialize the response
+    const serializedData = {
+      id: spendingType.id,
+      name: spendingType.name,
+      description: spendingType.description,
+      color: spendingType.color,
+      createdAt: spendingType.createdAt.toISOString(),
+      updatedAt: spendingType.updatedAt.toISOString(),
+    };
+
+    const response: SpendingTypeCreateResponse = {
       success: true,
-      data: spendingType,
+      data: serializedData,
+      message: 'Spending type created successfully',
     };
 
     return NextResponse.json(response, { status: 201 });
@@ -74,14 +102,14 @@ export async function POST(request: NextRequest) {
 
     // Check for unique constraint violation
     if (error.code === 'P2002') {
-      const response: ApiResponse = {
+      const response: SpendingTypeCreateResponse = {
         success: false,
         error: 'Spending type with this name already exists',
       };
       return NextResponse.json(response, { status: 409 });
     }
 
-    const response: ApiResponse = {
+    const response: SpendingTypeCreateResponse = {
       success: false,
       error: 'Failed to create spending type',
     };

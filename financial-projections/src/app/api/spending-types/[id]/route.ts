@@ -5,7 +5,12 @@ import {
   deleteSpendingType,
   UpdateSpendingTypeInput,
 } from '@/lib/dal/spending-types';
-import { ApiResponse } from '@/types';
+import {
+  SpendingTypeGetResponse,
+  SpendingTypeUpdateRequestSchema,
+  SpendingTypeUpdateResponse,
+  SpendingTypeDeleteResponse,
+} from '@/lib/schemas';
 
 /**
  * GET /api/spending-types/[id]
@@ -20,22 +25,32 @@ export async function GET(
     const spendingType = await getSpendingTypeById(id);
 
     if (!spendingType) {
-      const response: ApiResponse = {
+      const response: SpendingTypeGetResponse = {
         success: false,
         error: 'Spending type not found',
       };
       return NextResponse.json(response, { status: 404 });
     }
 
-    const response: ApiResponse = {
+    // Serialize the data
+    const serializedData = {
+      id: spendingType.id,
+      name: spendingType.name,
+      description: spendingType.description,
+      color: spendingType.color,
+      createdAt: spendingType.createdAt.toISOString(),
+      updatedAt: spendingType.updatedAt.toISOString(),
+    };
+
+    const response: SpendingTypeGetResponse = {
       success: true,
-      data: spendingType,
+      data: serializedData,
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching spending type:', error);
-    const response: ApiResponse = {
+    const response: SpendingTypeGetResponse = {
       success: false,
       error: 'Failed to fetch spending type',
     };
@@ -55,17 +70,39 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
+    // Validate request body with Zod
+    const validation = SpendingTypeUpdateRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: SpendingTypeUpdateResponse = {
+        success: false,
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    const validatedData = validation.data;
     const input: UpdateSpendingTypeInput = {
-      name: body.name,
-      description: body.description,
-      color: body.color,
+      name: validatedData.name,
+      description: validatedData.description ?? undefined,
+      color: validatedData.color ?? undefined,
     };
 
     const spendingType = await updateSpendingType(id, input);
 
-    const response: ApiResponse = {
+    // Serialize the response
+    const serializedData = {
+      id: spendingType.id,
+      name: spendingType.name,
+      description: spendingType.description,
+      color: spendingType.color,
+      createdAt: spendingType.createdAt.toISOString(),
+      updatedAt: spendingType.updatedAt.toISOString(),
+    };
+
+    const response: SpendingTypeUpdateResponse = {
       success: true,
-      data: spendingType,
+      data: serializedData,
+      message: 'Spending type updated successfully',
     };
 
     return NextResponse.json(response);
@@ -73,7 +110,7 @@ export async function PATCH(
     console.error('Error updating spending type:', error);
 
     if (error.code === 'P2025') {
-      const response: ApiResponse = {
+      const response: SpendingTypeUpdateResponse = {
         success: false,
         error: 'Spending type not found',
       };
@@ -81,14 +118,14 @@ export async function PATCH(
     }
 
     if (error.code === 'P2002') {
-      const response: ApiResponse = {
+      const response: SpendingTypeUpdateResponse = {
         success: false,
         error: 'Spending type with this name already exists',
       };
       return NextResponse.json(response, { status: 409 });
     }
 
-    const response: ApiResponse = {
+    const response: SpendingTypeUpdateResponse = {
       success: false,
       error: 'Failed to update spending type',
     };
@@ -108,7 +145,7 @@ export async function DELETE(
     const { id } = await params;
     await deleteSpendingType(id);
 
-    const response: ApiResponse = {
+    const response: SpendingTypeDeleteResponse = {
       success: true,
       message: 'Spending type deleted successfully',
     };
@@ -118,14 +155,14 @@ export async function DELETE(
     console.error('Error deleting spending type:', error);
 
     if (error.code === 'P2025') {
-      const response: ApiResponse = {
+      const response: SpendingTypeDeleteResponse = {
         success: false,
         error: 'Spending type not found',
       };
       return NextResponse.json(response, { status: 404 });
     }
 
-    const response: ApiResponse = {
+    const response: SpendingTypeDeleteResponse = {
       success: false,
       error: 'Failed to delete spending type',
     };

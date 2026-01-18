@@ -4,7 +4,12 @@ import {
   updateDecisionPath,
   deleteDecisionPath,
 } from '@/lib/dal/decision-paths';
-import { ApiResponse } from '@/types';
+import {
+  DecisionPathGetResponse,
+  DecisionPathUpdateRequestSchema,
+  DecisionPathUpdateResponse,
+  DecisionPathDeleteResponse,
+} from '@/lib/schemas';
 
 /**
  * GET /api/decision-paths/[id]
@@ -19,22 +24,30 @@ export async function GET(
     const decisionPath = await getDecisionPathById(id);
 
     if (!decisionPath) {
-      const response: ApiResponse = {
+      const response: DecisionPathGetResponse = {
         success: false,
         error: 'Decision path not found',
       };
       return NextResponse.json(response, { status: 404 });
     }
 
-    const response: ApiResponse = {
+    // Serialize the data
+    const serializedData = {
+      id: decisionPath.id,
+      name: decisionPath.name,
+      description: decisionPath.description,
+      createdAt: decisionPath.createdAt.toISOString(),
+    };
+
+    const response: DecisionPathGetResponse = {
       success: true,
-      data: decisionPath,
+      data: serializedData,
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching decision path:', error);
-    const response: ApiResponse = {
+    const response: DecisionPathGetResponse = {
       success: false,
       error: 'Failed to fetch decision path',
     };
@@ -54,26 +67,45 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    const updates: { name?: string; description?: string } = {};
-    if (body.name !== undefined) {
-      updates.name = body.name;
+    // Validate request body with Zod
+    const validation = DecisionPathUpdateRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: DecisionPathUpdateResponse = {
+        success: false,
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
+      };
+      return NextResponse.json(response, { status: 400 });
     }
-    if (body.description !== undefined) {
-      updates.description = body.description;
+
+    const validatedData = validation.data;
+    const updates: { name?: string; description?: string } = {};
+    if (validatedData.name !== undefined) {
+      updates.name = validatedData.name;
+    }
+    if (validatedData.description !== undefined) {
+      updates.description = validatedData.description ?? undefined;
     }
 
     const decisionPath = await updateDecisionPath(id, updates);
 
-    const response: ApiResponse = {
+    // Serialize the response
+    const serializedData = {
+      id: decisionPath.id,
+      name: decisionPath.name,
+      description: decisionPath.description,
+      createdAt: decisionPath.createdAt.toISOString(),
+    };
+
+    const response: DecisionPathUpdateResponse = {
       success: true,
-      data: decisionPath,
+      data: serializedData,
       message: 'Decision path updated successfully',
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error updating decision path:', error);
-    const response: ApiResponse = {
+    const response: DecisionPathUpdateResponse = {
       success: false,
       error: 'Failed to update decision path',
     };
@@ -93,7 +125,7 @@ export async function DELETE(
     const { id } = await params;
     await deleteDecisionPath(id);
 
-    const response: ApiResponse = {
+    const response: DecisionPathDeleteResponse = {
       success: true,
       message: 'Decision path deleted successfully',
     };
@@ -101,7 +133,7 @@ export async function DELETE(
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error deleting decision path:', error);
-    const response: ApiResponse = {
+    const response: DecisionPathDeleteResponse = {
       success: false,
       error: 'Failed to delete decision path',
     };

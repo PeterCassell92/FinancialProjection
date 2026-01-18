@@ -5,8 +5,12 @@ import {
   deleteBankAccount,
   UpdateBankAccountInput,
 } from '@/lib/dal/bank-accounts';
-import { ApiResponse } from '@/types';
-import { BankProvider } from '@prisma/client';
+import {
+  BankAccountGetResponse,
+  BankAccountUpdateRequestSchema,
+  BankAccountUpdateResponse,
+  BankAccountDeleteResponse,
+} from '@/lib/schemas';
 
 /**
  * GET /api/bank-accounts/[id]
@@ -21,22 +25,34 @@ export async function GET(
     const bankAccount = await getBankAccountById(id);
 
     if (!bankAccount) {
-      const response: ApiResponse = {
+      const response: BankAccountGetResponse = {
         success: false,
         error: 'Bank account not found',
       };
       return NextResponse.json(response, { status: 404 });
     }
 
-    const response: ApiResponse = {
+    // Serialize the data
+    const serializedData = {
+      id: bankAccount.id,
+      name: bankAccount.name,
+      description: bankAccount.description,
+      sortCode: bankAccount.sortCode,
+      accountNumber: bankAccount.accountNumber,
+      provider: bankAccount.provider,
+      createdAt: bankAccount.createdAt.toISOString(),
+      updatedAt: bankAccount.updatedAt.toISOString(),
+    };
+
+    const response: BankAccountGetResponse = {
       success: true,
-      data: bankAccount,
+      data: serializedData,
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching bank account:', error);
-    const response: ApiResponse = {
+    const response: BankAccountGetResponse = {
       success: false,
       error: 'Failed to fetch bank account',
     };
@@ -56,26 +72,41 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    // Validate provider if provided
-    if (body.provider && !Object.values(BankProvider).includes(body.provider)) {
-      const response: ApiResponse = {
+    // Validate request body with Zod
+    const validation = BankAccountUpdateRequestSchema.safeParse(body);
+    if (!validation.success) {
+      const response: BankAccountUpdateResponse = {
         success: false,
-        error: `Invalid provider. Must be one of: ${Object.values(BankProvider).join(', ')}`,
+        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
       };
       return NextResponse.json(response, { status: 400 });
     }
 
+    const validatedData = validation.data;
     const input: UpdateBankAccountInput = {
-      name: body.name,
-      description: body.description,
-      provider: body.provider,
+      name: validatedData.name,
+      description: validatedData.description ?? undefined,
+      provider: validatedData.provider,
     };
 
     const bankAccount = await updateBankAccount(id, input);
 
-    const response: ApiResponse = {
+    // Serialize the response
+    const serializedData = {
+      id: bankAccount.id,
+      name: bankAccount.name,
+      description: bankAccount.description,
+      sortCode: bankAccount.sortCode,
+      accountNumber: bankAccount.accountNumber,
+      provider: bankAccount.provider,
+      createdAt: bankAccount.createdAt.toISOString(),
+      updatedAt: bankAccount.updatedAt.toISOString(),
+    };
+
+    const response: BankAccountUpdateResponse = {
       success: true,
-      data: bankAccount,
+      data: serializedData,
+      message: 'Bank account updated successfully',
     };
 
     return NextResponse.json(response);
@@ -83,14 +114,14 @@ export async function PATCH(
     console.error('Error updating bank account:', error);
 
     if (error.code === 'P2025') {
-      const response: ApiResponse = {
+      const response: BankAccountUpdateResponse = {
         success: false,
         error: 'Bank account not found',
       };
       return NextResponse.json(response, { status: 404 });
     }
 
-    const response: ApiResponse = {
+    const response: BankAccountUpdateResponse = {
       success: false,
       error: 'Failed to update bank account',
     };
@@ -110,7 +141,7 @@ export async function DELETE(
     const { id } = await params;
     await deleteBankAccount(id);
 
-    const response: ApiResponse = {
+    const response: BankAccountDeleteResponse = {
       success: true,
       message: 'Bank account deleted successfully',
     };
@@ -120,7 +151,7 @@ export async function DELETE(
     console.error('Error deleting bank account:', error);
 
     if (error.code === 'P2025') {
-      const response: ApiResponse = {
+      const response: BankAccountDeleteResponse = {
         success: false,
         error: 'Bank account not found',
       };
@@ -129,14 +160,14 @@ export async function DELETE(
 
     // Check for foreign key constraint violation
     if (error.code === 'P2003') {
-      const response: ApiResponse = {
+      const response: BankAccountDeleteResponse = {
         success: false,
         error: 'Cannot delete bank account with existing transactions or events',
       };
       return NextResponse.json(response, { status: 409 });
     }
 
-    const response: ApiResponse = {
+    const response: BankAccountDeleteResponse = {
       success: false,
       error: 'Failed to delete bank account',
     };

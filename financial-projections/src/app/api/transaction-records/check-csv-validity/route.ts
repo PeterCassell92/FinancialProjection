@@ -6,7 +6,7 @@ import {
   updateUploadOperation,
   getDataFormatByName,
 } from '@/lib/dal/upload-operations';
-import { ApiResponse } from '@/types';
+import { CsvValidityCheckResponse } from '@/lib/schemas';
 
 /**
  * POST /api/transaction-records/check-csv-validity
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const dataFormatId = formData.get('dataFormatId') as string;
 
     if (!file || !dataFormatId) {
-      const response: ApiResponse = {
+      const response: CsvValidityCheckResponse = {
         success: false,
         error: 'Missing required fields: file, dataFormatId',
       };
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     // Validate data format exists in database
     const dataFormat = await getDataFormatByName(dataFormatId);
     if (!dataFormat) {
-      const response: ApiResponse = {
+      const response: CsvValidityCheckResponse = {
         success: false,
         error: `Unknown data format: ${dataFormatId}`,
       };
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Check if processor exists for this format
     const processor = processorRegistry.getProcessor(dataFormatId);
     if (!processor) {
-      const response: ApiResponse = {
+      const response: CsvValidityCheckResponse = {
         success: false,
         error: `No processor available for format: ${dataFormatId}`,
       };
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         errorMessage: preflightResult.error || 'CSV validation failed',
       });
 
-      const response: ApiResponse = {
+      const response: CsvValidityCheckResponse = {
         success: false,
         error: preflightResult.error || 'CSV validation failed',
         data: {
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       numberOfRecords: preflightResult.transactionCount,
     });
 
-    const response: ApiResponse = {
+    const response: CsvValidityCheckResponse = {
       success: true,
       data: {
         uploadOperationId,
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const response: ApiResponse = {
+    const response: CsvValidityCheckResponse = {
       success: false,
       error: 'Failed to check CSV validity',
       data: {
