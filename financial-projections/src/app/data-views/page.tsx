@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { format, startOfMonth, endOfMonth, addMonths, eachMonthOfInterval, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, eachMonthOfInterval, parseISO, subMonths } from 'date-fns';
 import { useAppSelector } from '@/lib/redux/hooks';
 import { formatCurrency } from '@/lib/utils/currency';
+import { TransactionCategoryPieChart } from '@/components/data-views/TransactionCategoryPieChart';
+import { SpendingOverTimeChart } from '@/components/data-views/SpendingOverTimeChart';
+import { CategoryBreakdownTable } from '@/components/data-views/CategoryBreakdownTable';
 
 interface ProjectionEvent {
   id: string;
@@ -28,13 +31,38 @@ interface MonthlyData {
   income: number;
 }
 
+interface CategoryData {
+  id: string;
+  name: string;
+  color: string | null;
+  totalDebit: number;
+  totalCredit: number;
+  count: number;
+}
+
+interface TransactionAnalytics {
+  byCategory: CategoryData[];
+  totals: {
+    totalDebit: number;
+    totalCredit: number;
+    transactionCount: number;
+  };
+  monthlySpending: Array<{
+    month: string;
+    debit: number;
+    credit: number;
+    count: number;
+  }>;
+}
+
 export default function DataViews() {
   const currency = useAppSelector((state) => state.settings.currency);
   const defaultBankAccountId = useAppSelector((state) => state.settings.defaultBankAccountId);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<ProjectionEvent[]>([]);
   const [balances, setBalances] = useState<DailyBalance[]>([]);
-  const [viewType, setViewType] = useState<'monthly-comparison' | 'balance-over-time'>('monthly-comparison');
+  const [transactionAnalytics, setTransactionAnalytics] = useState<TransactionAnalytics | null>(null);
+  const [viewType, setViewType] = useState<'monthly-comparison' | 'balance-over-time' | 'transaction-analytics'>('transaction-analytics');
 
   useEffect(() => {
     fetchData();
@@ -66,6 +94,17 @@ export default function DataViews() {
 
         if (balancesData.success) {
           setBalances(balancesData.data || []);
+        }
+
+        // Fetch transaction analytics (last 12 months)
+        const analyticsStartDate = subMonths(today, 12);
+        const analyticsResponse = await fetch(
+          `/api/transaction-records/analytics?bankAccountId=${defaultBankAccountId}&startDate=${format(analyticsStartDate, 'yyyy-MM-dd')}&endDate=${format(today, 'yyyy-MM-dd')}`
+        );
+        const analyticsData = await analyticsResponse.json();
+
+        if (analyticsData.success) {
+          setTransactionAnalytics(analyticsData.data);
         }
       }
     } catch (err) {
@@ -142,7 +181,18 @@ export default function DataViews() {
         </div>
 
         {/* View Selector */}
-        <div className="mb-6 flex gap-2" data-testid="view-selector">
+        <div className="mb-6 flex flex-wrap gap-2" data-testid="view-selector">
+          <button
+            onClick={() => setViewType('transaction-analytics')}
+            className={`px-4 py-2 rounded-lg ${
+              viewType === 'transaction-analytics'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 border border-gray-300'
+            }`}
+            data-testid="transaction-analytics-button"
+          >
+            Transaction Analytics
+          </button>
           <button
             onClick={() => setViewType('monthly-comparison')}
             className={`px-4 py-2 rounded-lg ${
@@ -152,7 +202,7 @@ export default function DataViews() {
             }`}
             data-testid="monthly-comparison-button"
           >
-            Monthly Income vs Expenses
+            Projection: Income vs Expenses
           </button>
           <button
             onClick={() => setViewType('balance-over-time')}
@@ -163,11 +213,87 @@ export default function DataViews() {
             }`}
             data-testid="balance-over-time-button"
           >
-            Balance Over Time
+            Projection: Balance Over Time
           </button>
         </div>
 
         {/* Charts */}
+        {viewType === 'transaction-analytics' && (
+          <div className="space-y-6">
+            {!transactionAnalytics || transactionAnalytics.totals.transactionCount === 0 ? (
+              <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
+                No transaction data available for the selected period.
+              </div>
+            ) : (
+              <>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="text-sm text-gray-600 mb-2">Total Expenses</div>
+                    <div className="text-3xl font-bold text-red-600">
+                      {formatCurrency(transactionAnalytics.totals.totalDebit, currency)}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      Last 12 months
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="text-sm text-gray-600 mb-2">Total Income</div>
+                    <div className="text-3xl font-bold text-green-600">
+                      {formatCurrency(transactionAnalytics.totals.totalCredit, currency)}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      Last 12 months
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="text-sm text-gray-600 mb-2">Transactions</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {transactionAnalytics.totals.transactionCount.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      {transactionAnalytics.byCategory.length} categories
+                    </div>
+                  </div>
+                </div>
+
+                {/* Spending by Category - Pie Chart */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                    Spending by Category
+                  </h2>
+                  <TransactionCategoryPieChart
+                    data={transactionAnalytics.byCategory}
+                    currency={currency}
+                  />
+                </div>
+
+                {/* Spending Over Time - Bar Chart */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                    Monthly Spending Trend
+                  </h2>
+                  <SpendingOverTimeChart
+                    data={transactionAnalytics.monthlySpending}
+                    currency={currency}
+                  />
+                </div>
+
+                {/* Category Breakdown Table */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                    Category Breakdown
+                  </h2>
+                  <CategoryBreakdownTable
+                    data={transactionAnalytics.byCategory}
+                    currency={currency}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {viewType === 'monthly-comparison' && (
           <div className="bg-white rounded-lg shadow p-6" data-testid="monthly-comparison-chart">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">

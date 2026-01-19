@@ -796,6 +796,67 @@ Reassign transaction records from one bank account to another.
 }
 ```
 
+### GET /api/transaction-records/analytics
+
+Get transaction analytics grouped by spending categories and monthly trends.
+
+**Query Parameters:**
+- `bankAccountId` (required): UUID of the bank account
+- `startDate` (optional): ISO date string (YYYY-MM-DD) for filtering from date
+- `endDate` (optional): ISO date string (YYYY-MM-DD) for filtering to date
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "byCategory": [
+      {
+        "id": "uuid",
+        "name": "Groceries",
+        "color": "#4CAF50",
+        "totalDebit": 1234.56,
+        "totalCredit": 0,
+        "count": 45
+      },
+      {
+        "id": "uncategorized",
+        "name": "Uncategorized",
+        "color": "#9CA3AF",
+        "totalDebit": 567.89,
+        "totalCredit": 0,
+        "count": 12
+      }
+    ],
+    "totals": {
+      "totalDebit": 5234.56,
+      "totalCredit": 6789.12,
+      "transactionCount": 150
+    },
+    "monthlySpending": [
+      {
+        "month": "2025-01",
+        "debit": 1234.56,
+        "credit": 2345.67,
+        "count": 45
+      },
+      {
+        "month": "2025-02",
+        "debit": 1456.78,
+        "credit": 2678.90,
+        "count": 52
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- Transactions with multiple spending types have their amounts split proportionally across categories
+- Uncategorized transactions (with no spending types) are grouped under "Uncategorized"
+- Monthly spending data is sorted chronologically by month
+- Category data is sorted by total debit amount (expenses) in descending order
+
 ---
 
 ## Spending Types

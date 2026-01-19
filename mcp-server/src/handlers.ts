@@ -187,6 +187,16 @@ export async function handleToolCall(name: string, args: any): Promise<any> {
         body: args,
       });
 
+    case 'get_transaction_analytics': {
+      const params: Record<string, string> = {
+        bankAccountId: args.bankAccountId,
+      };
+      if (args.startDate) params.startDate = args.startDate;
+      if (args.endDate) params.endDate = args.endDate;
+
+      return await apiRequest('/transaction-records/analytics', { params });
+    }
+
     // ========== Spending Types ==========
     case 'get_spending_types':
       return await apiRequest('/spending-types');

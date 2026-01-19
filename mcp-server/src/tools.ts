@@ -407,6 +407,19 @@ export const tools: Tool[] = [
       required: ['toBankAccountId'],
     },
   },
+  {
+    name: 'get_transaction_analytics',
+    description: 'Get transaction analytics grouped by spending categories and monthly trends. Returns category breakdowns, totals, and monthly spending data.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bankAccountId: { type: 'string', description: 'Bank account UUID' },
+        startDate: { type: 'string', description: 'Start date (YYYY-MM-DD) - optional, filters transactions from this date' },
+        endDate: { type: 'string', description: 'End date (YYYY-MM-DD) - optional, filters transactions to this date' },
+      },
+      required: ['bankAccountId'],
+    },
+  },
 
   // ========== Spending Types ==========
   {
