@@ -148,6 +148,79 @@ All components implement `data-testid` attributes:
 - Differentiating suffixes for repeated elements (e.g., `day-cell__14`)
 - Consistent naming convention throughout application
 
+### User Confirmations Pattern
+
+All user confirmations use the `ConfirmationModal` component instead of browser `alert()` or `confirm()` dialogs:
+
+**Location**: `/src/components/ConfirmationModal.tsx`
+
+**Purpose**:
+- Provides consistent, in-app confirmation dialogs
+- Maintains application context and styling
+- Better UX than browser native dialogs
+- Supports customization (title, description, button text, variants)
+
+**Usage Pattern**:
+
+1. **State Management**: Create confirmation modal state in component:
+```typescript
+const [confirmModal, setConfirmModal] = useState<{
+  isOpen: boolean;
+  title: string;
+  description: string;
+  onConfirm: () => void;
+  confirmText?: string;
+  confirmVariant?: 'default' | 'destructive';
+  isLoading?: boolean;
+}>({
+  isOpen: false,
+  title: '',
+  description: '',
+  onConfirm: () => {},
+});
+```
+
+2. **Trigger Confirmation**: Set modal state when action needs confirmation:
+```typescript
+const handleDelete = (id: string) => {
+  setConfirmModal({
+    isOpen: true,
+    title: 'Delete Item',
+    description: 'Are you sure you want to delete this item? This action cannot be undone.',
+    confirmText: 'Delete',
+    confirmVariant: 'destructive',
+    onConfirm: async () => {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      // Perform deletion logic
+    },
+  });
+};
+```
+
+3. **Render Modal**: Add modal component to JSX:
+```typescript
+<ConfirmationModal
+  isOpen={confirmModal.isOpen}
+  onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+  onConfirm={confirmModal.onConfirm}
+  title={confirmModal.title}
+  description={confirmModal.description}
+  confirmText={confirmModal.confirmText}
+  confirmVariant={confirmModal.confirmVariant}
+  isLoading={confirmModal.isLoading}
+/>
+```
+
+**Best Practices**:
+- Use `destructive` variant for delete/remove actions (red button)
+- Use `default` variant for apply/update actions (blue button)
+- Always close modal before executing async operations
+- Provide clear, descriptive titles and descriptions
+- Never use browser `alert()` or `confirm()` - always use ConfirmationModal
+
+**Example Components**:
+- `/src/components/CategorizationRulesManagement.tsx` - Demonstrates full implementation with multiple confirmation types
+
 ## Security Considerations
 
 - Local-only PostgreSQL instance (no external access)

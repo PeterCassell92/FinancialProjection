@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Edit2, Check, X, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 interface SpendingType {
   id: string;
@@ -60,6 +61,22 @@ export default function CategorizationRulesManagement({
   const [removeEndDate, setRemoveEndDate] = useState('');
   const [removeError, setRemoveError] = useState('');
   const [removing, setRemoving] = useState(false);
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    confirmVariant?: 'default' | 'destructive';
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
 
   // Fetch rules on mount
   useEffect(() => {
@@ -156,26 +173,44 @@ export default function CategorizationRulesManagement({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this categorization rule?')) {
-      return;
-    }
+    const rule = rules.find((r) => r.id === id);
+    if (!rule) return;
 
-    try {
-      const response = await fetch(`/api/categorization-rules/${id}`, {
-        method: 'DELETE',
-      });
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Categorization Rule',
+      description: `Are you sure you want to delete the rule "${rule.descriptionString}"?\n\nThis will also remove any spending types that were applied by this rule.`,
+      confirmText: 'Delete',
+      confirmVariant: 'destructive',
+      onConfirm: async () => {
+        // Optimistically remove from UI
+        setRules((prev) => prev.filter((r) => r.id !== id));
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
 
-      const data = await response.json();
+        try {
+          const response = await fetch(`/api/categorization-rules/${id}`, {
+            method: 'DELETE',
+          });
 
-      if (data.success) {
-        await fetchRules();
-      } else {
-        alert(data.error || 'Failed to delete rule');
-      }
-    } catch (error) {
-      console.error('Failed to delete categorization rule:', error);
-      alert('Failed to delete rule');
-    }
+          const data = await response.json();
+
+          if (!data.success) {
+            // Restore the rule if deletion failed
+            setRules((prev) => [...prev, rule].sort((a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            ));
+            alert(data.error || 'Failed to delete rule');
+          }
+        } catch (error) {
+          console.error('Failed to delete categorization rule:', error);
+          // Restore the rule on error
+          setRules((prev) => [...prev, rule].sort((a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          ));
+          alert('Failed to delete rule');
+        }
+      },
+    });
   };
 
   const handleApplyToExisting = async (ruleId: string) => {
@@ -187,37 +222,41 @@ export default function CategorizationRulesManagement({
     const rule = rules.find((r) => r.id === ruleId);
     if (!rule) return;
 
-    const message = `Apply rule "${rule.descriptionString}" to all existing transactions in this account?\n\nThis will add the spending type(s): ${rule.spendingTypes.map((st) => st.name).join(', ')}\n\nMatching transactions: ${rule.exactMatch ? 'Exact match only' : 'Contains pattern'}`;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Apply Categorization Rule',
+      description: `Apply rule "${rule.descriptionString}" to all existing transactions in this account?\n\nThis will add the spending type(s): ${rule.spendingTypes.map((st) => st.name).join(', ')}\n\nMatching transactions: ${rule.exactMatch ? 'Exact match only' : 'Contains pattern'}`,
+      confirmText: 'Apply Rule',
+      confirmVariant: 'default',
+      onConfirm: async () => {
+        setApplyingRuleId(ruleId);
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
 
-    if (!confirm(message)) {
-      return;
-    }
+        try {
+          const response = await fetch(`/api/categorization-rules/${ruleId}/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bankAccountId: selectedBankAccountId,
+            }),
+          });
 
-    setApplyingRuleId(ruleId);
+          const data = await response.json();
 
-    try {
-      const response = await fetch(`/api/categorization-rules/${ruleId}/apply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bankAccountId: selectedBankAccountId,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`Successfully applied rule to ${data.data?.transactionsUpdated || 0} transactions`);
-        onRuleApplied?.();
-      } else {
-        alert(data.error || 'Failed to apply rule');
-      }
-    } catch (error) {
-      console.error('Failed to apply categorization rule:', error);
-      alert('Failed to apply rule');
-    } finally {
-      setApplyingRuleId(null);
-    }
+          if (data.success) {
+            alert(`Successfully applied rule to ${data.data?.transactionsUpdated || 0} transactions`);
+            onRuleApplied?.();
+          } else {
+            alert(data.error || 'Failed to apply rule');
+          }
+        } catch (error) {
+          console.error('Failed to apply categorization rule:', error);
+          alert('Failed to apply rule');
+        } finally {
+          setApplyingRuleId(null);
+        }
+      },
+    });
   };
 
   const handleApplyAll = async () => {
@@ -231,48 +270,52 @@ export default function CategorizationRulesManagement({
       return;
     }
 
-    const message = `Apply all ${rules.length} categorization rule(s) to existing transactions in this account?\n\nThis will update any transactions that match the rules.`;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Apply All Rules',
+      description: `Apply all ${rules.length} categorization rule(s) to existing transactions in this account?\n\nThis will update any transactions that match the rules.`,
+      confirmText: 'Apply All',
+      confirmVariant: 'default',
+      onConfirm: async () => {
+        setApplyingAll(true);
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
 
-    if (!confirm(message)) {
-      return;
-    }
-
-    setApplyingAll(true);
-
-    try {
-      let totalUpdated = 0;
-      let successCount = 0;
-
-      // Apply each rule sequentially
-      for (const rule of rules) {
         try {
-          const response = await fetch(`/api/categorization-rules/${rule.id}/apply`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              bankAccountId: selectedBankAccountId,
-            }),
-          });
+          let totalUpdated = 0;
+          let successCount = 0;
 
-          const data = await response.json();
+          // Apply each rule sequentially
+          for (const rule of rules) {
+            try {
+              const response = await fetch(`/api/categorization-rules/${rule.id}/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  bankAccountId: selectedBankAccountId,
+                }),
+              });
 
-          if (data.success) {
-            totalUpdated += data.data?.transactionsUpdated || 0;
-            successCount++;
+              const data = await response.json();
+
+              if (data.success) {
+                totalUpdated += data.data?.transactionsUpdated || 0;
+                successCount++;
+              }
+            } catch (error) {
+              console.error(`Failed to apply rule ${rule.id}:`, error);
+            }
           }
-        } catch (error) {
-          console.error(`Failed to apply rule ${rule.id}:`, error);
-        }
-      }
 
-      alert(`Successfully applied ${successCount} of ${rules.length} rules.\nTotal transactions updated: ${totalUpdated}`);
-      onRuleApplied?.();
-    } catch (error) {
-      console.error('Failed to apply all rules:', error);
-      alert('Failed to apply all rules');
-    } finally {
-      setApplyingAll(false);
-    }
+          alert(`Successfully applied ${successCount} of ${rules.length} rules.\nTotal transactions updated: ${totalUpdated}`);
+          onRuleApplied?.();
+        } catch (error) {
+          console.error('Failed to apply all rules:', error);
+          alert('Failed to apply all rules');
+        } finally {
+          setApplyingAll(false);
+        }
+      },
+    });
   };
 
   const toggleSpendingType = (spendingTypeId: string) => {
@@ -319,53 +362,60 @@ export default function CategorizationRulesManagement({
       return;
     }
 
-    const confirmMessage = `Remove spending types from transactions matching "${removeDescriptionString}"?\n\nSpending types to remove: ${removeSpendingTypes.map(id => spendingTypes.find(st => st.id === id)?.name).join(', ')}\n\nMatch type: ${removeExactMatch ? 'Exact match' : 'Contains pattern'}${removeStartDate || removeEndDate ? `\nDate range: ${removeStartDate || 'any'} to ${removeEndDate || 'any'}` : ''}`;
+    const spendingTypeNames = removeSpendingTypes.map(id => spendingTypes.find(st => st.id === id)?.name).join(', ');
+    const dateRangeText = removeStartDate || removeEndDate ? `\nDate range: ${removeStartDate || 'any'} to ${removeEndDate || 'any'}` : '';
 
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Spending Types',
+      description: `Remove spending types from transactions matching "${removeDescriptionString}"?\n\nSpending types to remove: ${spendingTypeNames}\n\nMatch type: ${removeExactMatch ? 'Exact match' : 'Contains pattern'}${dateRangeText}`,
+      confirmText: 'Remove',
+      confirmVariant: 'destructive',
+      onConfirm: async () => {
+        setRemoving(true);
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
 
-    setRemoving(true);
+        try {
+          const body: any = {
+            bankAccountId: selectedBankAccountId,
+            descriptionString: removeDescriptionString.trim(),
+            exactMatch: removeExactMatch,
+            spendingTypeIds: removeSpendingTypes,
+          };
 
-    try {
-      const body: any = {
-        bankAccountId: selectedBankAccountId,
-        descriptionString: removeDescriptionString.trim(),
-        exactMatch: removeExactMatch,
-        spendingTypeIds: removeSpendingTypes,
-      };
+          if (removeStartDate || removeEndDate) {
+            body.dateRange = {};
+            if (removeStartDate) {
+              body.dateRange.startDate = new Date(removeStartDate).toISOString();
+            }
+            if (removeEndDate) {
+              body.dateRange.endDate = new Date(removeEndDate).toISOString();
+            }
+          }
 
-      if (removeStartDate || removeEndDate) {
-        body.dateRange = {};
-        if (removeStartDate) {
-          body.dateRange.startDate = new Date(removeStartDate).toISOString();
+          const response = await fetch('/api/transaction-records/remove-spending-types', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            alert(`Successfully removed ${data.data?.spendingTypesRemoved || 0} spending type associations from ${data.data?.transactionsMatched || 0} transactions`);
+            resetRemoveForm();
+            onRuleApplied?.(); // Refresh transactions
+          } else {
+            setRemoveError(data.error || 'Failed to remove spending types');
+          }
+        } catch (error) {
+          console.error('Failed to remove spending types:', error);
+          setRemoveError('Failed to remove spending types');
+        } finally {
+          setRemoving(false);
         }
-        if (removeEndDate) {
-          body.dateRange.endDate = new Date(removeEndDate).toISOString();
-        }
-      }
-
-      const response = await fetch('/api/transaction-records/remove-spending-types', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`Successfully removed ${data.data?.spendingTypesRemoved || 0} spending type associations from ${data.data?.transactionsMatched || 0} transactions`);
-        resetRemoveForm();
-        onRuleApplied?.(); // Refresh transactions
-      } else {
-        setRemoveError(data.error || 'Failed to remove spending types');
-      }
-    } catch (error) {
-      console.error('Failed to remove spending types:', error);
-      setRemoveError('Failed to remove spending types');
-    } finally {
-      setRemoving(false);
-    }
+      },
+    });
   };
 
   return (
@@ -755,6 +805,18 @@ export default function CategorizationRulesManagement({
           </p>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmText={confirmModal.confirmText}
+        confirmVariant={confirmModal.confirmVariant}
+        isLoading={confirmModal.isLoading}
+      />
     </div>
   );
 }
