@@ -90,12 +90,13 @@ The MCP server provides **28 tools** that map to the Financial Projections API:
 - `set_actual_balance` - Override with actual balance
 - `clear_actual_balance` - Remove override
 
-### Bank Accounts (5 tools)
+### Bank Accounts (6 tools)
 - `get_bank_accounts` - List all accounts
 - `create_bank_account` - Create new account
 - `get_bank_account` - Get account details
 - `update_bank_account` - Update account
-- `delete_bank_account` - Delete account
+- `delete_bank_account` - Delete account (optionally with all associated data via `deleteAll` parameter)
+- `merge_bank_accounts` - Merge one account into another
 
 ### Settings (2 tools)
 - `get_settings` - Get app settings

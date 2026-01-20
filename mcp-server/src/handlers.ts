@@ -116,6 +116,7 @@ export async function handleToolCall(name: string, args: any): Promise<any> {
     case 'delete_bank_account':
       return await apiRequest(`/bank-accounts/${args.id}`, {
         method: 'DELETE',
+        params: args.deleteAll ? { deleteAll: 'true' } : {},
       });
 
     case 'merge_bank_accounts':

@@ -238,11 +238,12 @@ export const tools: Tool[] = [
   },
   {
     name: 'delete_bank_account',
-    description: 'Delete a bank account',
+    description: 'Delete a bank account. By default, fails if the account has any associated records (transactions, events, etc.). Use deleteAll=true to cascade delete all associated data.',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: 'Account UUID' },
+        deleteAll: { type: 'boolean', description: 'If true, delete the bank account AND all associated records (transactions, projection events, recurring rules, daily balances, upload operations). If false/omitted, only delete the account itself (fails if it has related records).' },
       },
       required: ['id'],
     },

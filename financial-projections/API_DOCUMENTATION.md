@@ -406,9 +406,42 @@ Update a bank account.
 
 ### DELETE /api/bank-accounts/[id]
 
-Delete a bank account.
+Delete a bank account, with optional cascade deletion of all associated records.
 
-**Note:** Cannot delete if it's set as the default bank account in settings or if it has existing transactions/events.
+**Query Parameters:**
+- `deleteAll` (optional): Set to `true` to delete the bank account AND all associated records (transactions, projection events, recurring rules, daily balances, upload operations). If omitted or `false`, will only delete the bank account itself (fails if it has related records).
+
+**Response (without deleteAll):**
+```json
+{
+  "success": true,
+  "message": "Bank account deleted successfully"
+}
+```
+
+**Response (with deleteAll=true):**
+```json
+{
+  "success": true,
+  "message": "Bank account and all associated records deleted successfully (561 transactions)"
+}
+```
+
+**Error Response (409 - without deleteAll when records exist):**
+```json
+{
+  "success": false,
+  "error": "Cannot delete bank account with existing transactions or events. Use deleteAll=true to delete all associated records."
+}
+```
+
+**Note:** When `deleteAll=true`, the following data is permanently deleted:
+1. All projection events for the account
+2. All recurring projection event rules for the account
+3. All daily balance calculations for the account
+4. All upload operations for the account (and their junction table entries)
+5. All transaction records for the account (and their spending type associations)
+6. The bank account itself
 
 ### POST /api/bank-accounts/merge
 
