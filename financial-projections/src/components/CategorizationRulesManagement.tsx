@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Edit2, Check, X, Tag } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface SpendingType {
   id: string;
@@ -42,6 +42,7 @@ export default function CategorizationRulesManagement({
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [applyingRuleId, setApplyingRuleId] = useState<string | null>(null);
+  const [applyingAll, setApplyingAll] = useState(false);
 
   // Create/Edit form state
   const [descriptionString, setDescriptionString] = useState('');
@@ -49,6 +50,16 @@ export default function CategorizationRulesManagement({
   const [selectedSpendingTypes, setSelectedSpendingTypes] = useState<string[]>([]);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Smart Remove form state
+  const [showSmartRemove, setShowSmartRemove] = useState(false);
+  const [removeDescriptionString, setRemoveDescriptionString] = useState('');
+  const [removeExactMatch, setRemoveExactMatch] = useState(false);
+  const [removeSpendingTypes, setRemoveSpendingTypes] = useState<string[]>([]);
+  const [removeStartDate, setRemoveStartDate] = useState('');
+  const [removeEndDate, setRemoveEndDate] = useState('');
+  const [removeError, setRemoveError] = useState('');
+  const [removing, setRemoving] = useState(false);
 
   // Fetch rules on mount
   useEffect(() => {
@@ -209,6 +220,61 @@ export default function CategorizationRulesManagement({
     }
   };
 
+  const handleApplyAll = async () => {
+    if (!selectedBankAccountId) {
+      alert('Please select a bank account first');
+      return;
+    }
+
+    if (rules.length === 0) {
+      alert('No categorization rules to apply');
+      return;
+    }
+
+    const message = `Apply all ${rules.length} categorization rule(s) to existing transactions in this account?\n\nThis will update any transactions that match the rules.`;
+
+    if (!confirm(message)) {
+      return;
+    }
+
+    setApplyingAll(true);
+
+    try {
+      let totalUpdated = 0;
+      let successCount = 0;
+
+      // Apply each rule sequentially
+      for (const rule of rules) {
+        try {
+          const response = await fetch(`/api/categorization-rules/${rule.id}/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bankAccountId: selectedBankAccountId,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            totalUpdated += data.data?.transactionsUpdated || 0;
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to apply rule ${rule.id}:`, error);
+        }
+      }
+
+      alert(`Successfully applied ${successCount} of ${rules.length} rules.\nTotal transactions updated: ${totalUpdated}`);
+      onRuleApplied?.();
+    } catch (error) {
+      console.error('Failed to apply all rules:', error);
+      alert('Failed to apply all rules');
+    } finally {
+      setApplyingAll(false);
+    }
+  };
+
   const toggleSpendingType = (spendingTypeId: string) => {
     setSelectedSpendingTypes((prev) =>
       prev.includes(spendingTypeId)
@@ -217,26 +283,138 @@ export default function CategorizationRulesManagement({
     );
   };
 
+  const toggleRemoveSpendingType = (spendingTypeId: string) => {
+    setRemoveSpendingTypes((prev) =>
+      prev.includes(spendingTypeId)
+        ? prev.filter((id) => id !== spendingTypeId)
+        : [...prev, spendingTypeId]
+    );
+  };
+
+  const resetRemoveForm = () => {
+    setRemoveDescriptionString('');
+    setRemoveExactMatch(false);
+    setRemoveSpendingTypes([]);
+    setRemoveStartDate('');
+    setRemoveEndDate('');
+    setRemoveError('');
+  };
+
+  const handleSmartRemove = async () => {
+    setRemoveError('');
+
+    // Validation
+    if (!selectedBankAccountId) {
+      setRemoveError('Please select a bank account first');
+      return;
+    }
+
+    if (!removeDescriptionString.trim()) {
+      setRemoveError('Description string is required');
+      return;
+    }
+
+    if (removeSpendingTypes.length === 0) {
+      setRemoveError('At least one spending type must be selected');
+      return;
+    }
+
+    const confirmMessage = `Remove spending types from transactions matching "${removeDescriptionString}"?\n\nSpending types to remove: ${removeSpendingTypes.map(id => spendingTypes.find(st => st.id === id)?.name).join(', ')}\n\nMatch type: ${removeExactMatch ? 'Exact match' : 'Contains pattern'}${removeStartDate || removeEndDate ? `\nDate range: ${removeStartDate || 'any'} to ${removeEndDate || 'any'}` : ''}`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setRemoving(true);
+
+    try {
+      const body: any = {
+        bankAccountId: selectedBankAccountId,
+        descriptionString: removeDescriptionString.trim(),
+        exactMatch: removeExactMatch,
+        spendingTypeIds: removeSpendingTypes,
+      };
+
+      if (removeStartDate || removeEndDate) {
+        body.dateRange = {};
+        if (removeStartDate) {
+          body.dateRange.startDate = new Date(removeStartDate).toISOString();
+        }
+        if (removeEndDate) {
+          body.dateRange.endDate = new Date(removeEndDate).toISOString();
+        }
+      }
+
+      const response = await fetch('/api/transaction-records/remove-spending-types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`Successfully removed ${data.data?.spendingTypesRemoved || 0} spending type associations from ${data.data?.transactionsMatched || 0} transactions`);
+        resetRemoveForm();
+        onRuleApplied?.(); // Refresh transactions
+      } else {
+        setRemoveError(data.error || 'Failed to remove spending types');
+      }
+    } catch (error) {
+      console.error('Failed to remove spending types:', error);
+      setRemoveError('Failed to remove spending types');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow p-6" data-testid="categorization-rules-section">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Tag className="h-5 w-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">Auto-Categorization Rules</h3>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          data-testid="toggle-create-rule-button"
-        >
-          {showCreateForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-        </Button>
+      <div className="flex items-center gap-2 mb-4">
+        <Tag className="h-5 w-5 text-blue-600" />
+        <h3 className="text-lg font-semibold text-gray-900">Auto-Categorization Rules</h3>
       </div>
 
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm text-gray-600 mb-3">
         Automatically tag transactions during CSV import based on description matching
       </p>
+
+      {/* Actions Toolbar */}
+      <div className="flex items-center gap-2 mb-4 pb-4 border-b border-gray-200">
+        <span className="text-xs font-medium text-gray-500">Actions |</span>
+        {rules.length > 0 && selectedBankAccountId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleApplyAll}
+            disabled={applyingAll || applyingRuleId !== null}
+            className="h-7 text-xs"
+            data-testid="apply-all-rules-button"
+          >
+            <Check className="h-3 w-3 mr-1" />
+            {applyingAll ? 'Applying All...' : 'Apply All'}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          className="h-7 text-xs"
+          data-testid="toggle-create-rule-button"
+        >
+          {showCreateForm ? (
+            <>
+              <X className="h-3 w-3 mr-1" />
+              Cancel
+            </>
+          ) : (
+            <>
+              <Plus className="h-3 w-3 mr-1" />
+              Add Rule
+            </>
+          )}
+        </Button>
+      </div>
 
       {/* Create/Edit Form */}
       {(showCreateForm || editingRuleId) && (
@@ -341,7 +519,7 @@ export default function CategorizationRulesManagement({
         </div>
       )}
 
-      {/* Rules List */}
+      {/* Rules List - Scrollable */}
       {loading ? (
         <div className="text-center py-8 text-sm text-gray-500">Loading rules...</div>
       ) : rules.length === 0 ? (
@@ -352,7 +530,7 @@ export default function CategorizationRulesManagement({
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2" data-testid="rules-list-container">
           {rules.map((rule) => (
             <div
               key={rule.id}
@@ -417,6 +595,156 @@ export default function CategorizationRulesManagement({
           ))}
         </div>
       )}
+
+      {/* Smart Remove SpendingTypes - Collapsible Section */}
+      <div className="mt-6 pt-6 border-t border-gray-200">
+        <button
+          onClick={() => setShowSmartRemove(!showSmartRemove)}
+          className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+          data-testid="smart-remove-toggle"
+        >
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-4 w-4 text-gray-600" />
+            <span className="text-sm font-semibold text-gray-900">Smart Remove SpendingTypes</span>
+          </div>
+          {showSmartRemove ? (
+            <ChevronUp className="h-4 w-4 text-gray-600" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-gray-600" />
+          )}
+        </button>
+
+        {showSmartRemove && (
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-xs text-gray-600 mb-4">
+              Remove specific spending types from transactions matching a description pattern. Useful for cleaning up incorrect categorizations.
+            </p>
+
+            <div className="space-y-3">
+              {/* Description String */}
+              <div>
+                <Label htmlFor="remove-description-string" className="text-xs">
+                  Description Pattern
+                </Label>
+                <Input
+                  id="remove-description-string"
+                  value={removeDescriptionString}
+                  onChange={(e) => setRemoveDescriptionString(e.target.value)}
+                  placeholder="e.g., TESCO, AMAZON"
+                  className="text-sm"
+                  data-testid="remove-description-string-input"
+                />
+              </div>
+
+              {/* Exact Match Toggle */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="remove-exact-match"
+                  checked={removeExactMatch}
+                  onChange={(e) => setRemoveExactMatch(e.target.checked)}
+                  className="rounded border-gray-300"
+                  data-testid="remove-exact-match-checkbox"
+                />
+                <Label htmlFor="remove-exact-match" className="text-xs font-normal cursor-pointer">
+                  Exact match only
+                </Label>
+              </div>
+
+              {/* Date Range */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="remove-start-date" className="text-xs">
+                    Start Date (optional)
+                  </Label>
+                  <Input
+                    id="remove-start-date"
+                    type="date"
+                    value={removeStartDate}
+                    onChange={(e) => setRemoveStartDate(e.target.value)}
+                    className="text-sm"
+                    data-testid="remove-start-date-input"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="remove-end-date" className="text-xs">
+                    End Date (optional)
+                  </Label>
+                  <Input
+                    id="remove-end-date"
+                    type="date"
+                    value={removeEndDate}
+                    onChange={(e) => setRemoveEndDate(e.target.value)}
+                    className="text-sm"
+                    data-testid="remove-end-date-input"
+                  />
+                </div>
+              </div>
+
+              {/* Spending Types to Remove */}
+              <div>
+                <Label className="text-xs mb-2 block">Remove Spending Types</Label>
+                <div className="space-y-1 max-h-32 overflow-y-auto bg-white p-2 rounded border border-gray-300">
+                  {spendingTypes.map((st) => (
+                    <div key={st.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`remove-spending-type-${st.id}`}
+                        checked={removeSpendingTypes.includes(st.id)}
+                        onChange={() => toggleRemoveSpendingType(st.id)}
+                        className="rounded border-gray-300"
+                        data-testid={`remove-spending-type-checkbox-${st.name}`}
+                      />
+                      <Label
+                        htmlFor={`remove-spending-type-${st.id}`}
+                        className="text-xs font-normal cursor-pointer"
+                      >
+                        {st.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {removeError && (
+                <div className="text-xs text-red-600 bg-red-50 p-2 rounded" data-testid="remove-error">
+                  {removeError}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  size="sm"
+                  onClick={handleSmartRemove}
+                  disabled={removing || !selectedBankAccountId}
+                  variant="destructive"
+                  data-testid="smart-remove-button"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  {removing ? 'Removing...' : 'Remove'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={resetRemoveForm}
+                  disabled={removing}
+                  data-testid="cancel-remove-button"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              </div>
+
+              {!selectedBankAccountId && (
+                <p className="text-xs text-gray-600 italic">
+                  Please select a bank account to use this feature
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Help Text */}
       {rules.length > 0 && (
