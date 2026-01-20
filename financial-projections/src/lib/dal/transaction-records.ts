@@ -321,6 +321,8 @@ export async function batchCreateTransactionRecords(
             // Get spending type associations with rule IDs for this transaction description
             const associations = await getSpendingTypeAssociationsForTransaction(input.transactionDescription);
 
+            console.log(`[CSV Import Categorization] Transaction: "${input.transactionDescription}" - Found ${associations.length} matching rule associations`);
+
             // Add associations for each spending type with tracking info
             for (const association of associations) {
               spendingTypeAssociations.push({
@@ -340,10 +342,14 @@ export async function batchCreateTransactionRecords(
 
     // Bulk insert spending type associations
     if (spendingTypeAssociations.length > 0) {
+      console.log(`[CSV Import Categorization] Creating ${spendingTypeAssociations.length} spending type associations`);
       await prisma.transactionSpendingType.createMany({
         data: spendingTypeAssociations,
         skipDuplicates: true,
       });
+      console.log(`[CSV Import Categorization] Successfully created spending type associations`);
+    } else {
+      console.log(`[CSV Import Categorization] No spending type associations to create`);
     }
 
     // Reset usedRecordIds for junction table creation

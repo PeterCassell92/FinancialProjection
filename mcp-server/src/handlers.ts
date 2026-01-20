@@ -255,6 +255,18 @@ export async function handleToolCall(name: string, args: any): Promise<any> {
         },
       });
 
+    case 'remove_spending_type_by_condition':
+      return await apiRequest(`/transaction-records/remove-spending-types`, {
+        method: 'POST',
+        body: {
+          bankAccountId: args.bankAccountId,
+          descriptionString: args.descriptionString,
+          exactMatch: args.exactMatch ?? false,
+          spendingTypeIds: args.spendingTypeIds,
+          dateRange: args.dateRange,
+        },
+      });
+
     default:
       throw new Error(`Unknown tool: ${name}`);
   }

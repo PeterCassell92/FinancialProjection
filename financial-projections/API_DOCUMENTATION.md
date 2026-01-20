@@ -1111,6 +1111,47 @@ Apply a categorization rule to all existing transactions for a specific bank acc
 
 **Note:** Only adds spending types that aren't already associated with each transaction. Transactions that already have the spending type(s) are skipped.
 
+### POST /api/transaction-records/remove-spending-types
+
+Remove specific spending types from transactions matching a description pattern and optional date range. Useful for undoing incorrect categorizations or cleaning up data.
+
+**Request Body:**
+```json
+{
+  "bankAccountId": "uuid",
+  "descriptionString": "SPOTIFY",
+  "exactMatch": true,
+  "spendingTypeIds": ["uuid1", "uuid2"],
+  "dateRange": {
+    "startDate": "2026-01-01T00:00:00.000Z",
+    "endDate": "2026-01-31T23:59:59.999Z"
+  }
+}
+```
+
+**Fields:**
+- `bankAccountId` (required): UUID of the bank account to search in
+- `descriptionString` (required): Description pattern to match against transaction descriptions
+- `exactMatch` (optional, default: false): `true` for exact match, `false` for contains/partial match
+- `spendingTypeIds` (required): Array of spending type UUIDs to remove from matching transactions
+- `dateRange` (optional): Filter transactions by date range
+  - `startDate` (optional): ISO datetime string for start of range
+  - `endDate` (optional): ISO datetime string for end of range
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "transactionsMatched": 45,
+    "spendingTypesRemoved": 42
+  },
+  "message": "Removed 42 spending type association(s) from 45 matching transaction(s)"
+}
+```
+
+**Note:** Only removes the specified spending types from matching transactions. Other spending types on those transactions remain untouched.
+
 **How Categorization Rules Work:**
 
 1. **During CSV Import:** When transactions are imported from CSV, the system automatically checks each transaction description against all categorization rules.

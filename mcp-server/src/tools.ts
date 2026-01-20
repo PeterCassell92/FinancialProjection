@@ -548,4 +548,30 @@ export const tools: Tool[] = [
       required: ['id', 'bankAccountId'],
     },
   },
+  {
+    name: 'remove_spending_type_by_condition',
+    description: 'Remove specific spending types from transactions matching a description pattern and optional date range. Useful for undoing incorrect categorizations or cleaning up data.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bankAccountId: { type: 'string', description: 'Bank account UUID to search in' },
+        descriptionString: { type: 'string', description: 'Description pattern to match against transaction descriptions' },
+        exactMatch: { type: 'boolean', description: 'True for exact match, false for contains (default: false)' },
+        spendingTypeIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of spending type UUIDs to remove from matching transactions',
+        },
+        dateRange: {
+          type: 'object',
+          properties: {
+            startDate: { type: 'string', description: 'Start date in ISO datetime format (optional)' },
+            endDate: { type: 'string', description: 'End date in ISO datetime format (optional)' },
+          },
+          description: 'Optional date range filter',
+        },
+      },
+      required: ['bankAccountId', 'descriptionString', 'spendingTypeIds'],
+    },
+  },
 ];

@@ -125,6 +125,7 @@ The MCP server provides **34 tools** that map to the Financial Projections API:
 - `update_categorization_rule` - Update a rule
 - `delete_categorization_rule` - Delete a rule
 - `apply_categorization_rule` - Apply a rule to existing transactions for a bank account
+- `remove_spending_type_by_condition` - Remove specific spending types from transactions matching a description pattern
 
 ## Usage Examples
 
