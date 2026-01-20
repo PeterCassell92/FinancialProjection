@@ -3,6 +3,7 @@ import {
   getBankAccountById,
   updateBankAccount,
   deleteBankAccount,
+  deleteBankAccountAndAllAssociatedRecords,
   UpdateBankAccountInput,
 } from '@/lib/dal/bank-accounts';
 import {
@@ -132,6 +133,10 @@ export async function PATCH(
 /**
  * DELETE /api/bank-accounts/[id]
  * Delete a bank account
+ *
+ * Query params:
+ * - deleteAll=true: Delete the bank account AND all associated records
+ *   (transactions, projection events, recurring rules, daily balances, upload operations)
  */
 export async function DELETE(
   request: NextRequest,
@@ -139,14 +144,30 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await deleteBankAccount(id);
+    const { searchParams } = new URL(request.url);
+    const deleteAll = searchParams.get('deleteAll') === 'true';
 
-    const response: BankAccountDeleteResponse = {
-      success: true,
-      message: 'Bank account deleted successfully',
-    };
+    if (deleteAll) {
+      // Delete bank account and all associated records
+      const transactionCount = await deleteBankAccountAndAllAssociatedRecords(id);
 
-    return NextResponse.json(response);
+      const response: BankAccountDeleteResponse = {
+        success: true,
+        message: `Bank account and all associated records deleted successfully (${transactionCount} transactions)`,
+      };
+
+      return NextResponse.json(response);
+    } else {
+      // Delete only the bank account (will fail if there are related records)
+      await deleteBankAccount(id);
+
+      const response: BankAccountDeleteResponse = {
+        success: true,
+        message: 'Bank account deleted successfully',
+      };
+
+      return NextResponse.json(response);
+    }
   } catch (error: any) {
     console.error('Error deleting bank account:', error);
 
@@ -162,7 +183,7 @@ export async function DELETE(
     if (error.code === 'P2003') {
       const response: BankAccountDeleteResponse = {
         success: false,
-        error: 'Cannot delete bank account with existing transactions or events',
+        error: 'Cannot delete bank account with existing transactions or events. Use deleteAll=true to delete all associated records.',
       };
       return NextResponse.json(response, { status: 409 });
     }

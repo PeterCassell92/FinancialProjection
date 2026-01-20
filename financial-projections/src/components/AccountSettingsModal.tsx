@@ -29,7 +29,8 @@ export default function AccountSettingsModal({
   const dispatch = useAppDispatch();
   const enableTransactionDeletion = useAppSelector(selectEnableTransactionDeletion);
 
-  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [showDeleteTransactionsConfirmation, setShowDeleteTransactionsConfirmation] = useState(false);
+  const [showDeleteAccountConfirmation, setShowDeleteAccountConfirmation] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteAllTransactions = async () => {
@@ -38,11 +39,37 @@ export default function AccountSettingsModal({
       await dispatch(deleteAllTransactions(accountId)).unwrap();
       // Refresh transactions to reflect the deletion
       await dispatch(fetchTransactions(accountId));
-      setShowDeleteConfirmation(false);
-      onClose();
+      setShowDeleteTransactionsConfirmation(false);
+      alert('All transactions deleted successfully');
     } catch (error) {
       console.error('Failed to delete all transactions:', error);
       alert('Failed to delete all transactions');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteBankAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/bank-accounts/${accountId}?deleteAll=true`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete bank account');
+      }
+
+      setShowDeleteAccountConfirmation(false);
+      alert(data.message || 'Bank account and all data deleted successfully');
+      onClose();
+      // Optionally reload the page or redirect
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to delete bank account:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete bank account');
     } finally {
       setIsDeleting(false);
     }
@@ -124,24 +151,60 @@ export default function AccountSettingsModal({
                 </p>
               </div>
 
-              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              {/* Delete All Transactions */}
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-300">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h4 className="text-base font-semibold text-red-900">
+                    <h4 className="text-base font-semibold text-yellow-900">
                       Delete All Transaction Records
                     </h4>
-                    <p className="text-sm text-red-700 mt-1">
+                    <p className="text-sm text-yellow-800 mt-1">
                       This will permanently delete all transaction records for this account.
+                      The bank account itself will remain.
+                    </p>
+                    <p className="text-sm text-yellow-900 font-semibold mt-2">
                       This action cannot be undone.
                     </p>
                   </div>
                   <Button
                     variant="destructive"
-                    onClick={() => setShowDeleteConfirmation(true)}
+                    onClick={() => setShowDeleteTransactionsConfirmation(true)}
                     className="ml-4"
                     data-testid="delete-all-transactions-button"
                   >
-                    Delete All
+                    Delete Transactions
+                  </Button>
+                </div>
+              </div>
+
+              {/* Delete Bank Account */}
+              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="text-base font-semibold text-red-900">
+                      Delete Bank Account and All Data
+                    </h4>
+                    <p className="text-sm text-red-700 mt-1">
+                      This will permanently delete:
+                    </p>
+                    <ul className="text-sm text-red-700 mt-2 ml-4 list-disc space-y-1">
+                      <li>All transaction records</li>
+                      <li>All projection events and recurring rules</li>
+                      <li>All daily balance calculations</li>
+                      <li>All upload operation history</li>
+                      <li><strong>The bank account itself</strong></li>
+                    </ul>
+                    <p className="text-sm text-red-800 font-semibold mt-2">
+                      This action cannot be undone.
+                    </p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowDeleteAccountConfirmation(true)}
+                    className="ml-4 bg-red-700 hover:bg-red-800"
+                    data-testid="delete-bank-account-button"
+                  >
+                    Delete Account
                   </Button>
                 </div>
               </div>
@@ -157,14 +220,27 @@ export default function AccountSettingsModal({
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Transactions Confirmation Modal */}
       <ConfirmationModal
-        isOpen={showDeleteConfirmation}
-        onClose={() => setShowDeleteConfirmation(false)}
+        isOpen={showDeleteTransactionsConfirmation}
+        onClose={() => setShowDeleteTransactionsConfirmation(false)}
         onConfirm={handleDeleteAllTransactions}
         title="Delete All Transaction Records?"
-        description={`Are you sure you want to delete ALL transaction records for ${accountName}? This action cannot be undone and will permanently remove all transaction data from the database.`}
-        confirmText="Delete All Transactions"
+        description={`Are you sure you want to delete ALL transaction records for ${accountName}? The bank account itself will remain, but all transaction data will be permanently removed. This action cannot be undone.`}
+        confirmText="Delete Transactions"
+        cancelText="Cancel"
+        confirmVariant="destructive"
+        isLoading={isDeleting}
+      />
+
+      {/* Delete Bank Account Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteAccountConfirmation}
+        onClose={() => setShowDeleteAccountConfirmation(false)}
+        onConfirm={handleDeleteBankAccount}
+        title="Delete Bank Account and All Data?"
+        description={`Are you sure you want to delete ${accountName} and ALL associated data? This will permanently remove the bank account, all transaction records, all projection events and rules, all daily balance calculations, and all upload history. This action cannot be undone.`}
+        confirmText="Delete Everything"
         cancelText="Cancel"
         confirmVariant="destructive"
         isLoading={isDeleting}

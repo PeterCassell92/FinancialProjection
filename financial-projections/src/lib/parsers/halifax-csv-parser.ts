@@ -76,6 +76,22 @@ function cleanSortCode(sortCode: string): string {
 }
 
 /**
+ * Clean and pad account number
+ * UK bank account numbers should be 8 digits, so pad with leading zeros if needed
+ */
+function cleanAccountNumber(accountNumber: string): string {
+  // Convert to string, remove any whitespace
+  const cleaned = accountNumber.toString().trim();
+
+  // If it's less than 8 characters, pad with leading zeros
+  if (cleaned.length < 8) {
+    return cleaned.padStart(8, '0');
+  }
+
+  return cleaned;
+}
+
+/**
  * Parse Halifax CSV content
  *
  * Expected format:
@@ -107,7 +123,7 @@ export function parseHalifaxCSV(csvContent: string): HalifaxCSVParseResult {
     // Extract sort code and account number from first row (they should be consistent)
     if (records.length > 0) {
       result.metadata.sortCode = cleanSortCode(records[0]['Sort Code']);
-      result.metadata.accountNumber = records[0]['Account Number'].toString().trim();
+      result.metadata.accountNumber = cleanAccountNumber(records[0]['Account Number']);
     }
 
     // Parse each transaction
@@ -143,7 +159,7 @@ export function parseHalifaxCSV(csvContent: string): HalifaxCSVParseResult {
           transactionDate,
           transactionType,
           sortCode: cleanSortCode(row['Sort Code']),
-          accountNumber: row['Account Number'].toString().trim(),
+          accountNumber: cleanAccountNumber(row['Account Number']),
           transactionDescription: row['Transaction Description'].trim(),
           debitAmount,
           creditAmount,

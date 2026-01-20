@@ -208,72 +208,138 @@ export async function createTransactionRecord(
  *
  * If uploadOperationId and csvRowNumber are provided, creates junction table entries
  * to link transactions to their source CSV file and row number
+ *
+ * Uses createMany() for optimal performance with bulk inserts
  */
 export async function batchCreateTransactionRecords(
   inputs: CreateTransactionRecordInput[]
 ): Promise<number> {
-  // Check if any input has upload operation info - if so, use transaction with junction table
+  if (inputs.length === 0) {
+    return 0;
+  }
+
+  // Check if any input has upload operation info
   const hasUploadInfo = inputs.some(input => input.uploadOperationId && input.csvRowNumber !== undefined);
 
-  if (hasUploadInfo) {
-    // Use transaction to create records with junction table entries
-    let successCount = 0;
+  // Step 1: Pre-process all data to ensure correct types
+  const transactionData = inputs.map((input) => ({
+    transactionDate: input.transactionDate,
+    transactionType: input.transactionType,
+    transactionDescription: input.transactionDescription,
+    debitAmount: input.debitAmount ? new Prisma.Decimal(input.debitAmount) : null,
+    creditAmount: input.creditAmount ? new Prisma.Decimal(input.creditAmount) : null,
+    balance: new Prisma.Decimal(input.balance),
+    bankAccountId: input.bankAccountId,
+    notes: input.notes,
+  }));
 
-    for (const input of inputs) {
-      try {
-        await prisma.transactionRecord.create({
-          data: {
-            transactionDate: input.transactionDate,
-            transactionType: input.transactionType,
-            transactionDescription: input.transactionDescription,
-            debitAmount: input.debitAmount ? new Prisma.Decimal(input.debitAmount) : null,
-            creditAmount: input.creditAmount ? new Prisma.Decimal(input.creditAmount) : null,
-            balance: new Prisma.Decimal(input.balance),
-            bankAccountId: input.bankAccountId,
-            notes: input.notes,
-            // Create junction table entry if upload info provided
-            ...(input.uploadOperationId && input.csvRowNumber !== undefined ? {
-              uploadSources: {
-                create: {
-                  uploadOperationId: input.uploadOperationId,
-                  csvRowNumber: input.csvRowNumber,
-                },
-              },
-            } : {}),
+  // Step 2: Bulk insert transaction records (much faster than individual creates)
+  const result = await prisma.transactionRecord.createMany({
+    data: transactionData,
+    skipDuplicates: true,
+  });
+
+  // Step 3: If we have upload info, create junction table entries
+  if (hasUploadInfo && result.count > 0) {
+    // Get date range for efficient querying
+    const dates = inputs.map(input => input.transactionDate);
+    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+
+    // Fetch records to match them with junction table data
+    // We need to match by unique combination of date, description, debit, credit, and balance
+    // Include existing upload sources so we can filter out records already linked to THIS upload
+    const allRecords = await prisma.transactionRecord.findMany({
+      where: {
+        bankAccountId: inputs[0].bankAccountId,
+        transactionDate: {
+          gte: minDate,
+          lte: maxDate,
+        },
+      },
+      include: {
+        uploadSources: {
+          select: {
+            uploadOperationId: true,
           },
-        });
-        successCount++;
-      } catch (error) {
-        // Skip duplicates but log other errors
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-          // Duplicate - skip silently
-          continue;
-        }
-        console.error('Error creating transaction record:', error);
-      }
-    }
-
-    return successCount;
-  } else {
-    // Original behavior: use createMany for better performance when no upload info
-    const data = inputs.map((input) => ({
-      transactionDate: input.transactionDate,
-      transactionType: input.transactionType,
-      transactionDescription: input.transactionDescription,
-      debitAmount: input.debitAmount ? new Prisma.Decimal(input.debitAmount) : null,
-      creditAmount: input.creditAmount ? new Prisma.Decimal(input.creditAmount) : null,
-      balance: new Prisma.Decimal(input.balance),
-      bankAccountId: input.bankAccountId,
-      notes: input.notes,
-    }));
-
-    const result = await prisma.transactionRecord.createMany({
-      data,
-      skipDuplicates: true,
+        },
+      },
+      orderBy: [
+        { transactionDate: 'asc' },
+        { transactionDescription: 'asc' },
+        { balance: 'asc' },
+      ],
     });
 
-    return result.count;
+    // Filter out records that already have a source from THIS upload operation
+    const createdRecords = allRecords.filter(record =>
+      !record.uploadSources.some(source => source.uploadOperationId === inputs[0].uploadOperationId)
+    );
+
+    // Create a map for quick lookup, allowing multiple records with the same key
+    // Key format: date_description_debit_credit_balance
+    const recordMap = new Map<string, string[]>();
+    createdRecords.forEach(record => {
+      const key = `${record.transactionDate.toISOString()}_${record.transactionDescription}_${record.debitAmount?.toString() ?? 'null'}_${record.creditAmount?.toString() ?? 'null'}_${record.balance.toString()}`;
+      const existing = recordMap.get(key) || [];
+      existing.push(record.id);
+      recordMap.set(key, existing);
+    });
+
+    // Track which record IDs we've already used (to handle duplicates)
+    const usedRecordIds = new Set<string>();
+
+    // Build junction table entries
+    const junctionData = inputs
+      .filter(input => input.uploadOperationId && input.csvRowNumber !== undefined)
+      .map(input => {
+        const key = `${input.transactionDate.toISOString()}_${input.transactionDescription}_${input.debitAmount?.toString() ?? 'null'}_${input.creditAmount?.toString() ?? 'null'}_${input.balance.toString()}`;
+        const matchingIds = recordMap.get(key);
+
+        if (!matchingIds || matchingIds.length === 0) {
+          console.warn('Could not find matching transaction record for junction table entry', {
+            date: input.transactionDate,
+            description: input.transactionDescription,
+            debitAmount: input.debitAmount,
+            creditAmount: input.creditAmount,
+            balance: input.balance,
+          });
+          return null;
+        }
+
+        // Find the first unused record ID for this key
+        const recordId = matchingIds.find(id => !usedRecordIds.has(id));
+
+        if (!recordId) {
+          console.warn('All matching records already used for junction table entry', {
+            date: input.transactionDate,
+            description: input.transactionDescription,
+            balance: input.balance,
+          });
+          return null;
+        }
+
+        // Mark this record ID as used
+        usedRecordIds.add(recordId);
+
+        return {
+          transactionRecordId: recordId,
+          uploadOperationId: input.uploadOperationId!,
+          csvRowNumber: input.csvRowNumber!,
+        };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+    // Bulk insert junction table entries
+    if (junctionData.length > 0) {
+      await prisma.transactionUploadSource.createMany({
+        data: junctionData,
+        skipDuplicates: true,
+      });
+    }
   }
+
+  return result.count;
 }
 
 /**
@@ -371,6 +437,7 @@ export async function deleteTransactionRecord(id: string): Promise<TransactionRe
 
 /**
  * Delete all transaction records for a bank account
+ * Does NOT delete the bank account itself
  */
 export async function deleteAllTransactionRecords(bankAccountId: string): Promise<number> {
   const result = await prisma.transactionRecord.deleteMany({
