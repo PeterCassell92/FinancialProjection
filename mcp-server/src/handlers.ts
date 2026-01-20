@@ -221,6 +221,40 @@ export async function handleToolCall(name: string, args: any): Promise<any> {
         method: 'DELETE',
       });
 
+    // ========== Transaction Categorization Rules ==========
+    case 'get_categorization_rules':
+      return await apiRequest('/categorization-rules');
+
+    case 'get_categorization_rule':
+      return await apiRequest(`/categorization-rules/${args.id}`);
+
+    case 'create_categorization_rule':
+      return await apiRequest('/categorization-rules', {
+        method: 'POST',
+        body: args,
+      });
+
+    case 'update_categorization_rule': {
+      const { id, ...updateData } = args;
+      return await apiRequest(`/categorization-rules/${id}`, {
+        method: 'PATCH',
+        body: updateData,
+      });
+    }
+
+    case 'delete_categorization_rule':
+      return await apiRequest(`/categorization-rules/${args.id}`, {
+        method: 'DELETE',
+      });
+
+    case 'apply_categorization_rule':
+      return await apiRequest(`/categorization-rules/${args.id}/apply`, {
+        method: 'POST',
+        body: {
+          bankAccountId: args.bankAccountId,
+        },
+      });
+
     default:
       throw new Error(`Unknown tool: ${name}`);
   }

@@ -70,7 +70,7 @@ After updating the config, restart Claude Desktop.
 
 ## Available Tools
 
-The MCP server provides **28 tools** that map to the Financial Projections API:
+The MCP server provides **34 tools** that map to the Financial Projections API:
 
 ### Projection Events (5 tools)
 - `get_projection_events` - Query events in a date range
@@ -118,6 +118,14 @@ The MCP server provides **28 tools** that map to the Financial Projections API:
 - `update_spending_type` - Update category
 - `delete_spending_type` - Delete category
 
+### Transaction Categorization Rules (6 tools)
+- `get_categorization_rules` - List all auto-categorization rules
+- `get_categorization_rule` - Get rule details
+- `create_categorization_rule` - Create rule to auto-tag transactions during import
+- `update_categorization_rule` - Update a rule
+- `delete_categorization_rule` - Delete a rule
+- `apply_categorization_rule` - Apply a rule to existing transactions for a bank account
+
 ## Usage Examples
 
 Once configured in Claude Desktop, you can interact naturally:
@@ -145,6 +153,12 @@ Once configured in Claude Desktop, you can interact naturally:
 **You:** "How much am I spending on groceries this month?"
 
 **Claude:** Uses `get_transaction_records` and `get_spending_types` to analyze your spending.
+
+### Example 5: Auto-Categorization Setup
+
+**You:** "Set up automatic categorization so all TESCO transactions are tagged as groceries when I import my bank statements"
+
+**Claude:** Uses `get_spending_types` to find the "Groceries" category, then `create_categorization_rule` to create a rule that automatically tags any transaction containing "TESCO" as groceries during CSV import.
 
 ## Development
 

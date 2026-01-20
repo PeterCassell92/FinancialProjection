@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { TransactionRecord, TransactionType, Prisma } from '@prisma/client';
+import { getSpendingTypeAssociationsForTransaction } from './categorization-rules';
 
 export interface CreateTransactionRecordInput {
   transactionDate: Date;
@@ -239,8 +240,8 @@ export async function batchCreateTransactionRecords(
     skipDuplicates: true,
   });
 
-  // Step 3: If we have upload info, create junction table entries
-  if (hasUploadInfo && result.count > 0) {
+  // Step 3: Fetch created records for categorization and junction table linking
+  if (result.count > 0) {
     // Get date range for efficient querying
     const dates = inputs.map(input => input.transactionDate);
     const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
@@ -261,6 +262,11 @@ export async function batchCreateTransactionRecords(
         uploadSources: {
           select: {
             uploadOperationId: true,
+          },
+        },
+        spendingTypes: {
+          select: {
+            spendingTypeId: true,
           },
         },
       },
@@ -289,8 +295,62 @@ export async function batchCreateTransactionRecords(
     // Track which record IDs we've already used (to handle duplicates)
     const usedRecordIds = new Set<string>();
 
-    // Build junction table entries
-    const junctionData = inputs
+    // Step 4: Apply categorization rules to newly created records
+    // Build a map of transaction descriptions to spending type IDs with tracking
+    const spendingTypeAssociations: Array<{
+      transactionRecordId: string;
+      spendingTypeId: string;
+      categorizationRuleId: string;
+      appliedManually: boolean;
+    }> = [];
+
+    for (const input of inputs) {
+      const key = `${input.transactionDate.toISOString()}_${input.transactionDescription}_${input.debitAmount?.toString() ?? 'null'}_${input.creditAmount?.toString() ?? 'null'}_${input.balance.toString()}`;
+      const matchingIds = recordMap.get(key);
+
+      if (matchingIds && matchingIds.length > 0) {
+        // Find the first unused record ID for this key
+        const recordId = matchingIds.find(id => !usedRecordIds.has(id));
+
+        if (recordId) {
+          // Get the record to check if it already has spending types
+          const record = createdRecords.find(r => r.id === recordId);
+
+          // Only apply categorization rules if the record doesn't already have spending types
+          if (record && record.spendingTypes.length === 0) {
+            // Get spending type associations with rule IDs for this transaction description
+            const associations = await getSpendingTypeAssociationsForTransaction(input.transactionDescription);
+
+            // Add associations for each spending type with tracking info
+            for (const association of associations) {
+              spendingTypeAssociations.push({
+                transactionRecordId: recordId,
+                spendingTypeId: association.spendingTypeId,
+                categorizationRuleId: association.categorizationRuleId,
+                appliedManually: false, // Applied by rule during import
+              });
+            }
+          }
+
+          // Mark this record ID as used for the junction table mapping
+          usedRecordIds.add(recordId);
+        }
+      }
+    }
+
+    // Bulk insert spending type associations
+    if (spendingTypeAssociations.length > 0) {
+      await prisma.transactionSpendingType.createMany({
+        data: spendingTypeAssociations,
+        skipDuplicates: true,
+      });
+    }
+
+    // Reset usedRecordIds for junction table creation
+    usedRecordIds.clear();
+
+    // Step 5: Build junction table entries for upload operations
+    const junctionData = hasUploadInfo ? inputs
       .filter(input => input.uploadOperationId && input.csvRowNumber !== undefined)
       .map(input => {
         const key = `${input.transactionDate.toISOString()}_${input.transactionDescription}_${input.debitAmount?.toString() ?? 'null'}_${input.creditAmount?.toString() ?? 'null'}_${input.balance.toString()}`;
@@ -328,7 +388,7 @@ export async function batchCreateTransactionRecords(
           csvRowNumber: input.csvRowNumber!,
         };
       })
-      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null) : [];
 
     // Bulk insert junction table entries
     if (junctionData.length > 0) {
@@ -362,6 +422,8 @@ export async function updateTransactionRecord(
         data: input.spendingTypeIds.map((spendingTypeId) => ({
           transactionRecordId: id,
           spendingTypeId,
+          appliedManually: true, // User manually selected these spending types
+          categorizationRuleId: null, // Not applied by a rule
         })),
       });
     }
@@ -401,6 +463,8 @@ export async function updateManyTransactionRecords(
           input.spendingTypeIds!.map((spendingTypeId) => ({
             transactionRecordId: id,
             spendingTypeId,
+            appliedManually: true, // User manually selected these spending types
+            categorizationRuleId: null, // Not applied by a rule
           }))
         );
 

@@ -469,4 +469,83 @@ export const tools: Tool[] = [
       required: ['id'],
     },
   },
+
+  // ========== Transaction Categorization Rules ==========
+  {
+    name: 'get_categorization_rules',
+    description: 'Get all transaction categorization rules with their associated spending types. These rules automatically tag transactions during CSV import based on description string matching.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'get_categorization_rule',
+    description: 'Get a specific transaction categorization rule by ID',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Categorization rule UUID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'create_categorization_rule',
+    description: 'Create a new transaction categorization rule. When transactions are imported, the system will automatically match transaction descriptions against this rule and apply the associated spending types.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        descriptionString: { type: 'string', description: 'String to match against transaction descriptions (e.g., "TESCO", "AMAZON", "SPOTIFY")' },
+        exactMatch: { type: 'boolean', description: 'If true, requires exact match (case-insensitive). If false, does partial/contains match (case-insensitive)' },
+        spendingTypeIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of spending type UUIDs to associate with matching transactions'
+        },
+      },
+      required: ['descriptionString', 'exactMatch', 'spendingTypeIds'],
+    },
+  },
+  {
+    name: 'update_categorization_rule',
+    description: 'Update an existing categorization rule. When spendingTypeIds is provided, it replaces all existing spending type associations.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Categorization rule UUID' },
+        descriptionString: { type: 'string', description: 'String to match against transaction descriptions' },
+        exactMatch: { type: 'boolean', description: 'If true, requires exact match. If false, does partial match' },
+        spendingTypeIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of spending type UUIDs (replaces existing associations)'
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_categorization_rule',
+    description: 'Delete a categorization rule. This will cascade delete all spending type associations for the rule.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Categorization rule UUID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'apply_categorization_rule',
+    description: 'Apply a categorization rule to all existing transactions for a specific bank account. Adds the rule\'s spending types to matching transactions that don\'t already have them.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Categorization rule UUID' },
+        bankAccountId: { type: 'string', description: 'Bank account UUID to apply the rule to' },
+      },
+      required: ['id', 'bankAccountId'],
+    },
+  },
 ];

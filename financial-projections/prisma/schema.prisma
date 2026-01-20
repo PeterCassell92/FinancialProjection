@@ -286,20 +286,54 @@ model SpendingType {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  transactions TransactionSpendingType[]
+  transactions         TransactionSpendingType[]
+  categorizationRules  CategorizationRuleSpendingType[]
 }
 
 // Junction table: many-to-many between TransactionRecord and SpendingType
 model TransactionSpendingType {
-  id                  String @id @default(cuid())
-  transactionRecordId String
-  spendingTypeId      String
+  id                     String  @id @default(cuid())
+  transactionRecordId    String
+  spendingTypeId         String
+  categorizationRuleId   String? // If applied by a rule, track which rule
+  appliedManually        Boolean @default(false) // true if user manually added, false if added by rule or import
 
-  transactionRecord TransactionRecord @relation(fields: [transactionRecordId], references: [id], onDelete: Cascade)
-  spendingType      SpendingType      @relation(fields: [spendingTypeId], references: [id], onDelete: Cascade)
+  transactionRecord    TransactionRecord                @relation(fields: [transactionRecordId], references: [id], onDelete: Cascade)
+  spendingType         SpendingType                     @relation(fields: [spendingTypeId], references: [id], onDelete: Cascade)
+  categorizationRule   TransactionCategorizationRule?   @relation(fields: [categorizationRuleId], references: [id], onDelete: Cascade)
 
   @@unique([transactionRecordId, spendingTypeId])
   @@index([transactionRecordId])
+  @@index([spendingTypeId])
+  @@index([categorizationRuleId])
+}
+
+// Transaction Categorization Rules (auto-tag transactions during CSV import)
+model TransactionCategorizationRule {
+  id                String   @id @default(cuid())
+  descriptionString String // The pattern to match against transaction descriptions
+  exactMatch        Boolean  @default(false) // true = exact match, false = partial/contains match
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  spendingTypes              CategorizationRuleSpendingType[]
+  appliedTransactionTypes    TransactionSpendingType[] // Track which transaction spending types were applied by this rule
+
+  @@index([descriptionString])
+}
+
+// Junction table: many-to-many between TransactionCategorizationRule and SpendingType
+model CategorizationRuleSpendingType {
+  id                     String @id @default(cuid())
+  categorizationRuleId   String
+  spendingTypeId         String
+
+  categorizationRule TransactionCategorizationRule @relation(fields: [categorizationRuleId], references: [id], onDelete: Cascade)
+  spendingType       SpendingType                  @relation(fields: [spendingTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([categorizationRuleId, spendingTypeId])
+  @@index([categorizationRuleId])
   @@index([spendingTypeId])
 }
 

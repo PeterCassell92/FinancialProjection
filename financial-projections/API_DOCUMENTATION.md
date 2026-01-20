@@ -932,6 +932,207 @@ Create a new spending type.
 
 ---
 
+## Transaction Categorization Rules
+
+Transaction categorization rules enable automatic tagging of transactions with spending types during CSV import based on description string matching.
+
+### GET /api/categorization-rules
+
+Get all categorization rules with their associated spending types.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "descriptionString": "TESCO",
+      "exactMatch": false,
+      "spendingTypes": [
+        {
+          "id": "uuid",
+          "name": "Groceries"
+        }
+      ],
+      "createdAt": "2026-01-20T00:00:00.000Z",
+      "updatedAt": "2026-01-20T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+### GET /api/categorization-rules/[id]
+
+Get a specific categorization rule by ID.
+
+**Path Parameters:**
+- `id` (required): UUID of the categorization rule
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "descriptionString": "AMAZON",
+    "exactMatch": false,
+    "spendingTypes": [
+      {
+        "id": "uuid",
+        "name": "Shopping"
+      }
+    ],
+    "createdAt": "2026-01-20T00:00:00.000Z",
+    "updatedAt": "2026-01-20T00:00:00.000Z"
+  }
+}
+```
+
+### POST /api/categorization-rules
+
+Create a new categorization rule.
+
+**Request Body:**
+```json
+{
+  "descriptionString": "SPOTIFY",
+  "exactMatch": true,
+  "spendingTypeIds": ["uuid1", "uuid2"]
+}
+```
+
+**Fields:**
+- `descriptionString` (required): The string to match against transaction descriptions
+- `exactMatch` (required): `true` for exact match (case-insensitive), `false` for partial/contains match
+- `spendingTypeIds` (required): Array of spending type UUIDs to associate with matching transactions
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "descriptionString": "SPOTIFY",
+    "exactMatch": true,
+    "spendingTypes": [
+      {
+        "id": "uuid",
+        "name": "Entertainment"
+      }
+    ],
+    "createdAt": "2026-01-20T00:00:00.000Z",
+    "updatedAt": "2026-01-20T00:00:00.000Z"
+  },
+  "message": "Categorization rule created successfully"
+}
+```
+
+### PATCH /api/categorization-rules/[id]
+
+Update a categorization rule. All fields are optional.
+
+**Path Parameters:**
+- `id` (required): UUID of the categorization rule
+
+**Request Body:**
+```json
+{
+  "descriptionString": "NETFLIX",
+  "exactMatch": true,
+  "spendingTypeIds": ["uuid1"]
+}
+```
+
+**Note:** When `spendingTypeIds` is provided, it replaces all existing spending type associations.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "descriptionString": "NETFLIX",
+    "exactMatch": true,
+    "spendingTypes": [
+      {
+        "id": "uuid",
+        "name": "Entertainment"
+      }
+    ],
+    "createdAt": "2026-01-20T00:00:00.000Z",
+    "updatedAt": "2026-01-20T00:00:00.000Z"
+  },
+  "message": "Categorization rule updated successfully"
+}
+```
+
+### DELETE /api/categorization-rules/[id]
+
+Delete a categorization rule. This will cascade delete all spending type associations for the rule.
+
+**Path Parameters:**
+- `id` (required): UUID of the categorization rule
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Categorization rule deleted successfully"
+}
+```
+
+### POST /api/categorization-rules/[id]/apply
+
+Apply a categorization rule to all existing transactions for a specific bank account. This will add the rule's spending types to transactions that match the rule's pattern.
+
+**Path Parameters:**
+- `id` (required): UUID of the categorization rule
+
+**Request Body:**
+```json
+{
+  "bankAccountId": "uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "transactionsMatched": 45,
+    "transactionsUpdated": 42,
+    "spendingTypesAdded": 42
+  },
+  "message": "Applied rule to 42 transaction(s)"
+}
+```
+
+**Note:** Only adds spending types that aren't already associated with each transaction. Transactions that already have the spending type(s) are skipped.
+
+**How Categorization Rules Work:**
+
+1. **During CSV Import:** When transactions are imported from CSV, the system automatically checks each transaction description against all categorization rules.
+
+2. **Matching Logic:**
+   - **Exact Match** (`exactMatch: true`): Transaction description must exactly match the rule's `descriptionString` (case-insensitive)
+   - **Partial Match** (`exactMatch: false`): Transaction description must contain the rule's `descriptionString` (case-insensitive)
+
+3. **Priority:** Exact match rules take priority over partial match rules when multiple rules match the same transaction.
+
+4. **Multiple Rules:** If multiple rules match a transaction, all associated spending types from all matching rules are applied.
+
+5. **Existing Tags:** Rules are only applied to transactions that don't already have spending types assigned.
+
+**Example Use Cases:**
+
+- Create exact match rule for `"SPOTIFY"` → automatically tag as "Entertainment"
+- Create partial match rule for `"TESCO"` → automatically tag as "Groceries" (matches "TESCO STORES", "TESCO EXPRESS", etc.)
+- Create partial match rule for `"AMAZON"` → automatically tag as "Shopping"
+
+---
+
 ## Error Codes
 
 - `400` - Bad Request (validation errors)

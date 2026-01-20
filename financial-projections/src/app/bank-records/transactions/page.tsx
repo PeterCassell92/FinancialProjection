@@ -30,6 +30,7 @@ import {
 } from '@/lib/redux/settingsSlice';
 import Header from '@/components/Header';
 import SpendingTypeManagement from '@/components/SpendingTypeManagement';
+import CategorizationRulesManagement from '@/components/CategorizationRulesManagement';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -526,10 +527,26 @@ export default function TransactionsPage() {
         )}
           </div>
 
-          {/* Sidebar - Filters and Spending Type Management */}
+          {/* Sidebar - Filters and Management */}
           <div className="space-y-6">
             {/* Filters Section */}
             <TransactionRecordsTableFilters />
+
+            {/* Categorization Rules Management */}
+            <CategorizationRulesManagement
+              spendingTypes={spendingTypes}
+              selectedBankAccountId={selectedBankAccount}
+              onRuleCreated={() => {
+                // Optionally refresh something when a rule is created
+                console.log('Categorization rule created');
+              }}
+              onRuleApplied={() => {
+                // Refresh transactions after applying rule
+                if (selectedBankAccount) {
+                  dispatch(fetchTransactions(selectedBankAccount));
+                }
+              }}
+            />
 
             {/* Spending Type Management */}
             <SpendingTypeManagement
