@@ -10,7 +10,6 @@ RUN apk add --no-cache libc6-compat openssl
 
 # Copy package files
 COPY package.json yarn.lock* .yarnrc.yml* ./
-COPY .yarn ./.yarn
 
 # Install dependencies using yarn
 RUN corepack enable && \
@@ -29,7 +28,6 @@ RUN apk add --no-cache libc6-compat openssl
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/.yarn ./.yarn
 
 # Copy application source
 COPY . .
@@ -37,8 +35,14 @@ COPY . .
 # Set DATABASE_URL from build arg for Prisma generate
 ENV DATABASE_URL=${DATABASE_URL}
 
+# Debug: Show what DATABASE_URL is set to
+RUN echo "DATABASE_URL is: ${DATABASE_URL}"
+
+# Validate Prisma schema first to see full error
+RUN npx prisma@7.1.0 validate || true
+
 # Generate Prisma Client
-RUN npx prisma generate
+RUN npx prisma@7.1.0 generate
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -56,12 +60,16 @@ RUN apk add --no-cache libc6-compat openssl
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Install Prisma CLI for migrations (needed for prisma migrate deploy)
+RUN corepack enable && \
+    npm install -g prisma@7.1.0
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Copy necessary files from builder
-COPY --from=builder /app/next.config.js ./
+COPY --from=builder /app/next.config.ts ./
 COPY --from=builder /app/package.json ./
 
 # Copy Next.js build output
@@ -69,10 +77,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy Prisma schema and generated client
+# Copy Prisma schema, config, and generated client
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 
 # Switch to non-root user
 USER nextjs

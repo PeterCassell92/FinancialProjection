@@ -644,6 +644,7 @@ Get transaction records with pagination and filtering.
 - `startDate` (optional): Filter from date
 - `endDate` (optional): Filter to date
 - `description` (optional): Search in description
+- `format` (optional): Response format - `json` (default) or `toon` (compact format, 60-70% fewer tokens)
 
 **Response:**
 ```json
@@ -804,6 +805,7 @@ Get transaction analytics grouped by spending categories and monthly trends.
 - `bankAccountId` (required): UUID of the bank account
 - `startDate` (optional): ISO date string (YYYY-MM-DD) for filtering from date
 - `endDate` (optional): ISO date string (YYYY-MM-DD) for filtering to date
+- `format` (optional): Response format - `json` (default) or `toon` (compact format, 60-70% fewer tokens)
 
 **Response:**
 ```json

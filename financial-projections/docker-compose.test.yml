@@ -48,7 +48,7 @@ services:
         condition: service_healthy
     networks:
       - test-network
-    command: sh -c "npx prisma migrate deploy && npx prisma db seed && yarn dev"
+    command: sh -c "npx prisma@7.1.0 migrate deploy && npx prisma db seed && yarn dev"
     restart: unless-stopped
 
   # Prisma Studio for Test Database Inspection
@@ -69,7 +69,7 @@ services:
         condition: service_healthy
     networks:
       - test-network
-    command: npx prisma studio --browser none
+    command: npx prisma@7.1.0 studio --browser none
     restart: unless-stopped
 
 volumes:

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
-import { ApiResponse } from '@/types';
+import { ApiResponse, TransactionRecordWhereClause } from '@/types';
+import { formatAnalyticsAsTOON } from '@/lib/formatters/toon';
 
 const analyticsQuerySchema = z.object({
   bankAccountId: z.string(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+  format: z.enum(['json', 'toon']).optional().default('json'),
 });
 
 /**
@@ -20,6 +22,7 @@ export async function GET(request: NextRequest) {
       bankAccountId: searchParams.get('bankAccountId'),
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
+      format: searchParams.get('format') || 'json',
     };
 
     const validation = analyticsQuerySchema.safeParse(queryParams);
@@ -27,16 +30,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: validation.error.errors[0]?.message || 'Invalid query parameters',
+          error: validation.error.message || 'Invalid query parameters',
         },
         { status: 400 }
       );
     }
 
-    const { bankAccountId, startDate, endDate } = validation.data;
+    const { bankAccountId, startDate, endDate, format } = validation.data;
 
     // Build where clause
-    const whereClause: any = {
+    const whereClause: TransactionRecordWhereClause = {
       bankAccountId,
     };
 
@@ -80,8 +83,9 @@ export async function GET(request: NextRequest) {
     let uncategorizedCount = 0;
 
     for (const transaction of transactions) {
-      const debitAmount = transaction.debitAmount || 0;
-      const creditAmount = transaction.creditAmount || 0;
+      // Convert Prisma.Decimal to number for calculations
+      const debitAmount = transaction.debitAmount ? Number(transaction.debitAmount) : 0;
+      const creditAmount = transaction.creditAmount ? Number(transaction.creditAmount) : 0;
 
       if (transaction.spendingTypes.length === 0) {
         // Uncategorized
@@ -145,8 +149,8 @@ export async function GET(request: NextRequest) {
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
       const existing = monthlyData.get(monthKey);
-      const debit = transaction.debitAmount || 0;
-      const credit = transaction.creditAmount || 0;
+      const debit = Number(transaction.debitAmount) || 0;
+      const credit = Number(transaction.creditAmount) || 0;
 
       if (existing) {
         existing.debit += debit;
@@ -166,14 +170,29 @@ export async function GET(request: NextRequest) {
       a.month.localeCompare(b.month)
     );
 
+    const analyticsData = {
+      byCategory: categoryData,
+      totals,
+      monthlySpending,
+    };
+
+    // Return TOON format if requested
+    if (format === 'toon') {
+      const toonData = formatAnalyticsAsTOON(analyticsData);
+      return NextResponse.json(
+        {
+          success: true,
+          data: toonData,
+        },
+        { status: 200 }
+      );
+    }
+
+    // Default JSON format
     return NextResponse.json(
       {
         success: true,
-        data: {
-          byCategory: categoryData,
-          totals,
-          monthlySpending,
-        },
+        data: analyticsData,
       },
       { status: 200 }
     );

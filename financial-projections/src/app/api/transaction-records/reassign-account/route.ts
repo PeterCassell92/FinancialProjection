@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { ApiResponse } from '@/types';
 
@@ -24,7 +25,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: validation.error.errors[0]?.message || 'Invalid request body',
+          error: validation.error.message || 'Invalid request body',
         },
         { status: 400 }
       );
@@ -85,8 +86,33 @@ export async function PATCH(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Reassign transactions error:', error);
+
+    // Handle Prisma-specific errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      // P2025: Record not found
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'One or more transactions or bank account not found',
+          },
+          { status: 404 }
+        );
+      }
+      // P2003: Foreign key constraint violation
+      if (error.code === 'P2003') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid bank account reference',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     return NextResponse.json(
       {
         success: false,

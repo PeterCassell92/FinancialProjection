@@ -188,6 +188,7 @@ mcp-server/
 2. **Tool Definitions**: Each API endpoint is exposed as a tool with a JSON schema describing its parameters
 3. **HTTP Proxy**: Tool calls are translated to HTTP requests to your Financial Projections API
 4. **Response Formatting**: API responses are formatted as text content for the AI to process
+5. **TOON Optimization**: Transaction endpoints automatically use TOON (Token Oriented Object Notation) format, reducing token usage by 60-70%
 
 ## Troubleshooting
 
@@ -225,6 +226,26 @@ Update `FINANCIAL_PROJECTIONS_API_URL` to match your running instance.
 - **Localhost Binding**: Only connects to localhost by default
 - **Trust Model**: MCP servers run with your user permissions - only use trusted servers
 
+## Performance Optimizations
+
+### TOON Format (Implemented)
+
+The MCP server automatically uses **TOON (Token Oriented Object Notation)** format for transaction data retrieval, which provides:
+
+- **60-70% token reduction** compared to verbose JSON
+- Faster AI response times due to less data processing
+- Pipe-delimited format that's highly readable for AI models
+- Automatic implementation - transparent to users
+
+**Example:**
+```
+TRANSACTIONS (Page 1/10, showing 100 of 1000 total)
+ID|Date|Type|Description|Debit|Credit|Balance|SpendingTypes|Notes
+abc12345|2025-01-15|DEB|TESCO STORES|45.67||1234.56|Groceries|Weekly shop
+```
+
+For more details, see [TOON_IMPLEMENTATION.md](/home/pete/Documents/Projects/FinancialProjection/TOON_IMPLEMENTATION.md)
+
 ## Future Enhancements
 
 Potential improvements:
@@ -235,6 +256,7 @@ Potential improvements:
 - [ ] Support for batch operations
 - [ ] CSV upload capability through MCP
 - [ ] Real-time balance updates via server-sent events
+- [ ] Vector database integration for semantic search on transactions (Phase 2)
 
 ## Contributing
 

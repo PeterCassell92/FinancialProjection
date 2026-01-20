@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import {
   getTransactionRecords,
   getTransactionRecordsCount,
@@ -8,6 +9,7 @@ import {
   TransactionRecordWithSpendingTypes,
 } from '@/lib/dal/transaction-records';
 import { ApiResponse } from '@/types';
+import { formatTransactionsAsTOON } from '@/lib/formatters/toon';
 
 /**
  * Serialized transaction record with Decimal fields converted to numbers
@@ -62,6 +64,7 @@ function serializeTransactionRecord(transaction: TransactionRecordWithSpendingTy
  * - description (optional): Partial match search on transaction description (case-insensitive)
  * - page (optional): Page number (1-indexed, default: no pagination)
  * - pageSize (optional): Number of records per page (default: no pagination)
+ * - format (optional): Response format - 'json' (default) or 'toon' (compact format for AI)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -72,6 +75,7 @@ export async function GET(request: NextRequest) {
     const description = searchParams.get('description');
     const pageParam = searchParams.get('page');
     const pageSizeParam = searchParams.get('pageSize');
+    const format = searchParams.get('format') || 'json';
 
     if (!bankAccountId) {
       const response: ApiResponse = {
@@ -114,18 +118,34 @@ export async function GET(request: NextRequest) {
     // Convert Decimal fields to numbers for JSON serialization
     const serializedTransactions: SerializedTransactionRecord[] = transactions.map(serializeTransactionRecord);
 
-    // Build response with pagination metadata if applicable
+    // Build pagination metadata if applicable
+    const paginationMetadata =
+      page && pageSize && totalCount !== undefined
+        ? {
+            page,
+            pageSize,
+            totalRecords: totalCount,
+            totalPages: Math.ceil(totalCount / pageSize),
+          }
+        : undefined;
+
+    // Return TOON format if requested
+    if (format === 'toon') {
+      const toonData = formatTransactionsAsTOON(serializedTransactions, paginationMetadata);
+      const response: ApiResponse<string> = {
+        success: true,
+        data: toonData,
+      };
+      return NextResponse.json(response);
+    }
+
+    // Default JSON format
     const responseData: TransactionRecordsResponseData = {
       transactions: serializedTransactions,
     };
 
-    if (page && pageSize && totalCount !== undefined) {
-      responseData.pagination = {
-        page,
-        pageSize,
-        totalRecords: totalCount,
-        totalPages: Math.ceil(totalCount / pageSize),
-      };
+    if (paginationMetadata) {
+      responseData.pagination = paginationMetadata;
     }
 
     const response: ApiResponse<TransactionRecordsResponseData> = {
@@ -134,11 +154,17 @@ export async function GET(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching transaction records:', error);
+
+    // Handle Prisma-specific errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      // Add specific Prisma error handling if needed
+    }
+
     const response: ApiResponse = {
       success: false,
-      error: 'Failed to fetch transaction records',
+      error: error instanceof Error ? error.message : 'Failed to fetch transaction records',
     };
     return NextResponse.json(response, { status: 500 });
   }
@@ -188,20 +214,23 @@ export async function PATCH(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating transaction record:', error);
 
-    if (error.code === 'P2025') {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Transaction record not found',
-      };
-      return NextResponse.json(response, { status: 404 });
+    // Handle Prisma-specific errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Transaction record not found',
+        };
+        return NextResponse.json(response, { status: 404 });
+      }
     }
 
     const response: ApiResponse = {
       success: false,
-      error: 'Failed to update transaction record',
+      error: error instanceof Error ? error.message : 'Failed to update transaction record',
     };
     return NextResponse.json(response, { status: 500 });
   }
@@ -232,20 +261,23 @@ export async function DELETE(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting transaction record:', error);
 
-    if (error.code === 'P2025') {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Transaction record not found',
-      };
-      return NextResponse.json(response, { status: 404 });
+    // Handle Prisma-specific errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Transaction record not found',
+        };
+        return NextResponse.json(response, { status: 404 });
+      }
     }
 
     const response: ApiResponse = {
       success: false,
-      error: 'Failed to delete transaction record',
+      error: error instanceof Error ? error.message : 'Failed to delete transaction record',
     };
     return NextResponse.json(response, { status: 500 });
   }

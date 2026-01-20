@@ -31,6 +31,7 @@ services:
       dockerfile: Dockerfile
       args:
         - NODE_ENV=production
+        - DATABASE_URL=postgresql://${POSTGRES_USER:-financialapp}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-financial_projections}?schema=public
     container_name: financial-projections-app
     environment:
       - NODE_ENV=production
@@ -43,7 +44,7 @@ services:
         condition: service_healthy
     networks:
       - app-network
-    command: sh -c "npx prisma migrate deploy && node server.js"
+    command: sh -c "echo DATABASE_URL=$$DATABASE_URL && npx prisma@7.1.0 migrate deploy --schema=./prisma/schema.prisma && node server.js"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
@@ -70,7 +71,7 @@ services:
         condition: service_healthy
     networks:
       - app-network
-    command: npx prisma studio --browser none
+    command: npx prisma@7.1.0 studio --browser none
     restart: unless-stopped
     profiles:
       - debug  # Only start with --profile debug

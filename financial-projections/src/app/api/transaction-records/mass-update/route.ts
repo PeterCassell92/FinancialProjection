@@ -41,7 +41,7 @@ export async function PATCH(request: NextRequest) {
     if (!validation.success) {
       const response: MassUpdateResponse = {
         success: false,
-        error: validation.error.errors[0]?.message || 'Invalid request body',
+        error: validation.error.message || 'Invalid request body',
       };
       return NextResponse.json(response, { status: 400 });
     }

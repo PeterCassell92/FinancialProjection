@@ -96,3 +96,22 @@ export interface UpdateSettingsRequest {
   initialBankBalance: number;
   initialBalanceDate?: string; // ISO date string, optional
 }
+
+// Transaction Record where clause types
+export interface TransactionRecordDateFilter {
+  gte?: Date;
+  lte?: Date;
+}
+
+export interface TransactionRecordFullWhereClause {
+  bankAccountId: string;
+  transactionDate: TransactionRecordDateFilter;
+  transactionDescription?: {
+    contains: string;
+    mode: 'insensitive';
+  };
+}
+
+export type TransactionRecordWhereClause = Partial<TransactionRecordFullWhereClause> & {
+  bankAccountId: string; // bankAccountId is always required
+};

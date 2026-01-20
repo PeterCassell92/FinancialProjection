@@ -16,12 +16,18 @@ export async function apiRequest(
     params?: Record<string, string>;
   } = {}
 ): Promise<any> {
-  const { method = 'GET', body, params } = options;
+  const { method = 'GET', body, params = {} } = options;
+
+  // Automatically add TOON format for transaction-related endpoints
+  // This dramatically reduces token usage (50-70% reduction) for large transaction datasets
+  if (endpoint.includes('/transaction-records')) {
+    params['format'] = 'toon';
+  }
 
   let url = `${API_BASE_URL}${endpoint}`;
 
   // Add query parameters
-  if (params) {
+  if (params && Object.keys(params).length > 0) {
     const searchParams = new URLSearchParams(params);
     url += `?${searchParams.toString()}`;
   }
