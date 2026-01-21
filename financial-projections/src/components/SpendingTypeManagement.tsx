@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Plus } from 'lucide-react';
+import CollapsibleHeader from '@/components/CollapsibleHeader';
 
 interface SpendingType {
   id: string;
@@ -21,6 +23,8 @@ export default function SpendingTypeManagement({
   spendingTypes,
   onSpendingTypeCreated,
 }: SpendingTypeManagementProps) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [createFormCollapsed, setCreateFormCollapsed] = useState(spendingTypes.length > 10);
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newColor, setNewColor] = useState('#3B82F6');
@@ -67,70 +71,95 @@ export default function SpendingTypeManagement({
 
   return (
     <div className="bg-white rounded-lg shadow p-6" data-testid="spending-type-management">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">
-        Manage Spending Types
-      </h2>
+      <CollapsibleHeader
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(!collapsed)}
+        size="lg"
+        testId="collapse-spending-types-button"
+        ariaLabel={collapsed ? 'Expand spending types' : 'Collapse spending types'}
+      >
+        <h2 className="text-xl font-semibold text-gray-900">
+          Manage Spending Types
+        </h2>
+      </CollapsibleHeader>
 
-      {/* Create Form */}
-      <div className="space-y-4 mb-6 pb-6 border-b border-gray-200">
-        <div>
-          <Label htmlFor="spending-type-name">Name *</Label>
-          <Input
-            id="spending-type-name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g., Groceries"
-            data-testid="spending-type-name-input"
-          />
-        </div>
+      {!collapsed && (
+        <>
+          {/* Create Form */}
+          <div className="mb-6 pb-6 border-b border-gray-200">
+            <CollapsibleHeader
+              collapsed={createFormCollapsed}
+              onToggle={() => setCreateFormCollapsed(!createFormCollapsed)}
+              size="sm"
+              testId="collapse-create-form-button"
+              ariaLabel={createFormCollapsed ? 'Expand create form' : 'Collapse create form'}
+            >
+              <Plus className="h-4 w-4 text-blue-600" />
+              <h3 className="text-sm font-semibold text-gray-700">Create New Spending Type</h3>
+            </CollapsibleHeader>
 
-        <div>
-          <Label htmlFor="spending-type-description">Description</Label>
-          <Input
-            id="spending-type-description"
-            value={newDescription}
-            onChange={(e) => setNewDescription(e.target.value)}
-            placeholder="Optional description"
-            data-testid="spending-type-description-input"
-          />
-        </div>
+            {!createFormCollapsed && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="spending-type-name">Name *</Label>
+                  <Input
+                    id="spending-type-name"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="e.g., Groceries"
+                    data-testid="spending-type-name-input"
+                  />
+                </div>
 
-        <div>
-          <Label htmlFor="spending-type-color">Color</Label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              id="spending-type-color"
-              value={newColor}
-              onChange={(e) => setNewColor(e.target.value)}
-              className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
-              data-testid="spending-type-color-input"
-            />
-            <Input
-              value={newColor}
-              onChange={(e) => setNewColor(e.target.value)}
-              placeholder="#3B82F6"
-              className="flex-1 font-mono"
-              data-testid="spending-type-color-text-input"
-            />
+                <div>
+                  <Label htmlFor="spending-type-description">Description</Label>
+                  <Input
+                    id="spending-type-description"
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    placeholder="Optional description"
+                    data-testid="spending-type-description-input"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="spending-type-color">Color</Label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      id="spending-type-color"
+                      value={newColor}
+                      onChange={(e) => setNewColor(e.target.value)}
+                      className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                      data-testid="spending-type-color-input"
+                    />
+                    <Input
+                      value={newColor}
+                      onChange={(e) => setNewColor(e.target.value)}
+                      placeholder="#3B82F6"
+                      className="flex-1 font-mono"
+                      data-testid="spending-type-color-text-input"
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="text-sm text-red-600" data-testid="error-message">
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  onClick={handleCreate}
+                  disabled={creating || !newName.trim()}
+                  className="w-full"
+                  data-testid="create-spending-type-button"
+                >
+                  {creating ? 'Creating...' : 'Create Spending Type'}
+                </Button>
+              </div>
+            )}
           </div>
-        </div>
-
-        {error && (
-          <div className="text-sm text-red-600" data-testid="error-message">
-            {error}
-          </div>
-        )}
-
-        <Button
-          onClick={handleCreate}
-          disabled={creating || !newName.trim()}
-          className="w-full"
-          data-testid="create-spending-type-button"
-        >
-          {creating ? 'Creating...' : 'Create Spending Type'}
-        </Button>
-      </div>
 
       {/* Existing Spending Types List */}
       <div>
@@ -168,7 +197,9 @@ export default function SpendingTypeManagement({
             ))}
           </div>
         )}
-      </div>
+        </div>
+        </>
+      )}
     </div>
   );
 }

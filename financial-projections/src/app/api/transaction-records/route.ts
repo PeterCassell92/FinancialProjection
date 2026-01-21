@@ -55,13 +55,15 @@ function serializeTransactionRecord(transaction: TransactionRecordWithSpendingTy
 
 /**
  * GET /api/transaction-records
- * Get transaction records for a bank account with optional date filtering, description search, and pagination
+ * Get transaction records for a bank account with optional date filtering, description search, spending type filtering, and pagination
  *
  * Query parameters:
  * - bankAccountId (required): Bank account ID
  * - startDate (optional): ISO date string for start of date range
  * - endDate (optional): ISO date string for end of date range
  * - description (optional): Partial match search on transaction description (case-insensitive)
+ * - spendingTypeIds (optional): Comma-separated list of spending type IDs to filter by
+ * - spendingTypeNames (optional): Comma-separated list of spending type names to filter by
  * - page (optional): Page number (1-indexed, default: no pagination)
  * - pageSize (optional): Number of records per page (default: no pagination)
  * - format (optional): Response format - 'json' (default) or 'toon' (compact format for AI)
@@ -73,6 +75,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const description = searchParams.get('description');
+    const spendingTypeIdsParam = searchParams.get('spendingTypeIds');
+    const spendingTypeNamesParam = searchParams.get('spendingTypeNames');
     const pageParam = searchParams.get('page');
     const pageSizeParam = searchParams.get('pageSize');
     const format = searchParams.get('format') || 'json';
@@ -87,6 +91,8 @@ export async function GET(request: NextRequest) {
 
     const startDateObj = startDate ? new Date(startDate) : undefined;
     const endDateObj = endDate ? new Date(endDate) : undefined;
+    const spendingTypeIds = spendingTypeIdsParam ? spendingTypeIdsParam.split(',').map(id => id.trim()) : undefined;
+    const spendingTypeNames = spendingTypeNamesParam ? spendingTypeNamesParam.split(',').map(name => name.trim()) : undefined;
     const page = pageParam ? parseInt(pageParam, 10) : undefined;
     const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : undefined;
 
@@ -109,9 +115,25 @@ export async function GET(request: NextRequest) {
 
     // Fetch transactions and total count in parallel
     const [transactions, totalCount] = await Promise.all([
-      getTransactionRecords(bankAccountId, startDateObj, endDateObj, page, pageSize, description || undefined),
+      getTransactionRecords(
+        bankAccountId,
+        startDateObj,
+        endDateObj,
+        page,
+        pageSize,
+        description || undefined,
+        spendingTypeIds,
+        spendingTypeNames
+      ),
       page && pageSize
-        ? getTransactionRecordsCount(bankAccountId, startDateObj, endDateObj, description || undefined)
+        ? getTransactionRecordsCount(
+            bankAccountId,
+            startDateObj,
+            endDateObj,
+            description || undefined,
+            spendingTypeIds,
+            spendingTypeNames
+          )
         : Promise.resolve(undefined),
     ]);
 

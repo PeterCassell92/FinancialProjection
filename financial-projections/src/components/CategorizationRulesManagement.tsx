@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Edit2, Check, X, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Tag, ChevronUp } from 'lucide-react';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import CollapsibleHeader from '@/components/CollapsibleHeader';
 
 interface SpendingType {
   id: string;
@@ -38,6 +39,7 @@ export default function CategorizationRulesManagement({
   onRuleCreated,
   onRuleApplied,
 }: CategorizationRulesManagementProps) {
+  const [collapsed, setCollapsed] = useState(false);
   const [rules, setRules] = useState<CategorizationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -420,16 +422,24 @@ export default function CategorizationRulesManagement({
 
   return (
     <div className="bg-white rounded-lg shadow p-6" data-testid="categorization-rules-section">
-      <div className="flex items-center gap-2 mb-4">
+      <CollapsibleHeader
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(!collapsed)}
+        size="md"
+        testId="collapse-categorization-button"
+        ariaLabel={collapsed ? 'Expand categorization rules' : 'Collapse categorization rules'}
+      >
         <Tag className="h-5 w-5 text-blue-600" />
         <h3 className="text-lg font-semibold text-gray-900">Auto-Categorization Rules</h3>
-      </div>
+      </CollapsibleHeader>
 
-      <p className="text-sm text-gray-600 mb-3">
-        Automatically tag transactions during CSV import based on description matching
-      </p>
+      {!collapsed && (
+        <>
+          <p className="text-sm text-gray-600 mb-3">
+            Automatically tag transactions during CSV import based on description matching
+          </p>
 
-      {/* Actions Toolbar */}
+          {/* Actions Toolbar */}
       <div className="flex items-center gap-2 mb-4 pb-4 border-b border-gray-200">
         <span className="text-xs font-medium text-gray-500">Actions |</span>
         {rules.length > 0 && selectedBankAccountId && (
@@ -648,21 +658,18 @@ export default function CategorizationRulesManagement({
 
       {/* Smart Remove SpendingTypes - Collapsible Section */}
       <div className="mt-6 pt-6 border-t border-gray-200">
-        <button
-          onClick={() => setShowSmartRemove(!showSmartRemove)}
-          className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-          data-testid="smart-remove-toggle"
-        >
-          <div className="flex items-center gap-2">
+        <div className="p-1 bg-gray-50 rounded-lg">
+          <CollapsibleHeader
+            collapsed={!showSmartRemove}
+            onToggle={() => setShowSmartRemove(!showSmartRemove)}
+            size="sm"
+            testId="smart-remove-toggle"
+            ariaLabel={showSmartRemove ? 'Collapse smart remove' : 'Expand smart remove'}
+          >
             <Trash2 className="h-4 w-4 text-gray-600" />
             <span className="text-sm font-semibold text-gray-900">Smart Remove SpendingTypes</span>
-          </div>
-          {showSmartRemove ? (
-            <ChevronUp className="h-4 w-4 text-gray-600" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-gray-600" />
-          )}
-        </button>
+          </CollapsibleHeader>
+        </div>
 
         {showSmartRemove && (
           <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -804,6 +811,8 @@ export default function CategorizationRulesManagement({
             matched against these rules and tagged with the associated spending types.
           </p>
         </div>
+      )}
+        </>
       )}
 
       {/* Confirmation Modal */}

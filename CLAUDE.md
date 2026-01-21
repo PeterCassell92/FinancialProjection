@@ -221,6 +221,76 @@ const handleDelete = (id: string) => {
 **Example Components**:
 - `/src/components/CategorizationRulesManagement.tsx` - Demonstrates full implementation with multiple confirmation types
 
+### Collapsible Sections Pattern
+
+All collapsible sections use the `CollapsibleHeader` component for consistent behavior and appearance:
+
+**Location**: `/src/components/CollapsibleHeader.tsx`
+
+**Purpose**:
+- Provides a reusable, consistent UI pattern for collapsible sections
+- Entire header area (including text and icons) is clickable to toggle
+- Animated chevron indicator for visual feedback
+- Accessible with proper ARIA labels and keyboard support
+- Multiple size variants for different use cases
+
+**Key Features**:
+- **Fully clickable**: The entire header acts as a toggle button, not just a small chevron
+- **Flexible content**: Accepts any content via children prop (icons, text, badges, etc.)
+- **Size variants**: Three sizes (sm, md, lg) for different hierarchies
+- **Smooth animations**: CSS transitions for chevron rotation and hover effects
+- **Accessibility**: Proper ARIA attributes and semantic button element
+
+**Usage Pattern**:
+
+```typescript
+import CollapsibleHeader from '@/components/CollapsibleHeader';
+
+// In your component
+const [collapsed, setCollapsed] = useState(false);
+
+// In your JSX
+<CollapsibleHeader
+  collapsed={collapsed}
+  onToggle={() => setCollapsed(!collapsed)}
+  size="md"
+  testId="collapse-section-button"
+  ariaLabel={collapsed ? 'Expand section' : 'Collapse section'}
+>
+  <IconComponent className="h-5 w-5 text-gray-600" />
+  <h3 className="text-lg font-semibold text-gray-900">Section Title</h3>
+  {/* Optional badges, labels, etc. */}
+</CollapsibleHeader>
+
+{!collapsed && (
+  <div>
+    {/* Your collapsible content here */}
+  </div>
+)}
+```
+
+**Size Variants**:
+- `sm`: Small headers for nested/secondary sections (h-4 w-4 chevron)
+- `md`: Medium headers for main sections (h-5 w-5 chevron)
+- `lg`: Large headers for top-level sections (h-5 w-5 chevron)
+
+**Best Practices**:
+- Always wrap the CollapsibleHeader and content in a container div
+- Use appropriate size variant based on section hierarchy
+- Provide descriptive aria-label values for accessibility
+- Include data-testid for testing purposes
+- Keep header content concise and scannable
+
+**Smart Defaults**:
+- Sections with few items (<10): Start expanded
+- Sections with many items (>10): Start collapsed to save space
+- Nested collapsibles: Inner sections can start collapsed independently
+
+**Example Components**:
+- `/src/components/TransactionRecordsTableFilters.tsx` - Main filters section
+- `/src/components/CategorizationRulesManagement.tsx` - Multiple collapsible sections including Smart Remove
+- `/src/components/SpendingTypeManagement.tsx` - Two-level collapsibility (main section + create form)
+
 ## Security Considerations
 
 - Local-only PostgreSQL instance (no external access)

@@ -41,13 +41,15 @@ export interface GetTransactionRecordsOptions {
   bankAccountId: string;
   startDate?: Date;
   endDate?: Date;
-  description?: string;  // Partial match search on transaction description
-  page?: number;         // Page number (1-indexed)
-  pageSize?: number;     // Number of records per page
+  description?: string;      // Partial match search on transaction description
+  spendingTypeIds?: string[]; // Filter by spending type IDs
+  spendingTypeNames?: string[]; // Filter by spending type names (will be converted to IDs)
+  page?: number;             // Page number (1-indexed)
+  pageSize?: number;         // Number of records per page
 }
 
 /**
- * Get transaction records for a bank account with optional date range, description search, and pagination
+ * Get transaction records for a bank account with optional date range, description search, spending type filtering, and pagination
  * Results are sorted by transaction date (desc), then by CSV row number (asc) for same-day transactions
  */
 export async function getTransactionRecords(
@@ -56,7 +58,9 @@ export async function getTransactionRecords(
   endDate?: Date,
   page?: number,
   pageSize?: number,
-  description?: string
+  description?: string,
+  spendingTypeIds?: string[],
+  spendingTypeNames?: string[]
 ): Promise<TransactionRecordWithSpendingTypes[]> {
   const where: Prisma.TransactionRecordWhereInput = {
     bankAccountId,
@@ -77,6 +81,39 @@ export async function getTransactionRecords(
     where.transactionDescription = {
       contains: description,
       mode: 'insensitive',
+    };
+  }
+
+  // Add spending type filtering
+  // If names are provided, look them up to get IDs
+  let resolvedSpendingTypeIds = spendingTypeIds;
+  if (spendingTypeNames && spendingTypeNames.length > 0) {
+    const spendingTypes = await prisma.spendingType.findMany({
+      where: {
+        name: {
+          in: spendingTypeNames,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+    const idsFromNames = spendingTypes.map(st => st.id);
+
+    // Merge with any provided IDs
+    resolvedSpendingTypeIds = resolvedSpendingTypeIds
+      ? [...resolvedSpendingTypeIds, ...idsFromNames]
+      : idsFromNames;
+  }
+
+  // Apply spending type filter if we have IDs
+  if (resolvedSpendingTypeIds && resolvedSpendingTypeIds.length > 0) {
+    where.spendingTypes = {
+      some: {
+        spendingTypeId: {
+          in: resolvedSpendingTypeIds,
+        },
+      },
     };
   }
 
@@ -131,7 +168,9 @@ export async function getTransactionRecordsCount(
   bankAccountId: string,
   startDate?: Date,
   endDate?: Date,
-  description?: string
+  description?: string,
+  spendingTypeIds?: string[],
+  spendingTypeNames?: string[]
 ): Promise<number> {
   const where: Prisma.TransactionRecordWhereInput = {
     bankAccountId,
@@ -152,6 +191,39 @@ export async function getTransactionRecordsCount(
     where.transactionDescription = {
       contains: description,
       mode: 'insensitive',
+    };
+  }
+
+  // Add spending type filtering
+  // If names are provided, look them up to get IDs
+  let resolvedSpendingTypeIds = spendingTypeIds;
+  if (spendingTypeNames && spendingTypeNames.length > 0) {
+    const spendingTypes = await prisma.spendingType.findMany({
+      where: {
+        name: {
+          in: spendingTypeNames,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+    const idsFromNames = spendingTypes.map(st => st.id);
+
+    // Merge with any provided IDs
+    resolvedSpendingTypeIds = resolvedSpendingTypeIds
+      ? [...resolvedSpendingTypeIds, ...idsFromNames]
+      : idsFromNames;
+  }
+
+  // Apply spending type filter if we have IDs
+  if (resolvedSpendingTypeIds && resolvedSpendingTypeIds.length > 0) {
+    where.spendingTypes = {
+      some: {
+        spendingTypeId: {
+          in: resolvedSpendingTypeIds,
+        },
+      },
     };
   }
 

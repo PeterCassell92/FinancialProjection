@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search, X, Filter } from 'lucide-react';
+import CollapsibleHeader from '@/components/CollapsibleHeader';
 
 export default function TransactionRecordsTableFilters() {
   const dispatch = useAppDispatch();
@@ -20,6 +21,7 @@ export default function TransactionRecordsTableFilters() {
   const selectedBankAccountId = useAppSelector(selectSelectedBankAccountId);
 
   // Local state for form inputs
+  const [collapsed, setCollapsed] = useState(false);
   const [startDate, setStartDate] = useState(filters.startDate || '');
   const [endDate, setEndDate] = useState(filters.endDate || '');
   const [description, setDescription] = useState(filters.description || '');
@@ -62,17 +64,24 @@ export default function TransactionRecordsTableFilters() {
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6" data-testid="transaction-filters">
-      <div className="flex items-center gap-2 mb-4">
+      <CollapsibleHeader
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(!collapsed)}
+        size="md"
+        testId="collapse-filters-button"
+        ariaLabel={collapsed ? 'Expand filters' : 'Collapse filters'}
+      >
         <Filter className="h-5 w-5 text-gray-600" />
         <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
         {hasActiveFilters && (
-          <span className="ml-auto text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+          <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
             Active
           </span>
         )}
-      </div>
+      </CollapsibleHeader>
 
-      <div className="space-y-4">
+      {!collapsed && (
+        <div className="space-y-4">
         {/* Description Search */}
         <div className="space-y-2">
           <Label htmlFor="description-search">Search Description</Label>
@@ -167,7 +176,8 @@ export default function TransactionRecordsTableFilters() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
