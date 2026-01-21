@@ -549,6 +549,17 @@ export const tools: Tool[] = [
     },
   },
   {
+    name: 'apply_all_categorization_rules',
+    description: 'Apply all categorization rules to existing transactions for a specific bank account. More efficient than applying rules individually. Returns detailed results for each rule including success/failure status, transactions updated, and spending types added. Creates a single activity log entry with progress tracking.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bankAccountId: { type: 'string', description: 'Bank account UUID to apply all rules to' },
+      },
+      required: ['bankAccountId'],
+    },
+  },
+  {
     name: 'remove_spending_type_by_condition',
     description: 'Remove specific spending types from transactions matching a description pattern and optional date range. Useful for undoing incorrect categorizations or cleaning up data.',
     inputSchema: {

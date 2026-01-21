@@ -2,6 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useAppSelector } from '@/lib/redux/hooks';
+import { selectUnreadCount } from '@/lib/redux/activityLogSlice';
+import ActivityLogPanel from '@/components/ActivityLog/ActivityLogPanel';
+import { Bell } from 'lucide-react';
 
 interface HeaderProps {
   onOpenSettings: () => void;
@@ -10,7 +14,10 @@ interface HeaderProps {
 
 export default function Header({ onOpenSettings, onOpenInfo }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const activityLogRef = useRef<HTMLDivElement>(null);
+  const unreadCount = useAppSelector(selectUnreadCount);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -50,8 +57,33 @@ export default function Header({ onOpenSettings, onOpenInfo }: HeaderProps) {
             </h1>
           </Link>
 
-          {/* Burger Menu */}
-          <div className="relative" ref={menuRef}>
+          <div className="flex items-center gap-2">
+            {/* Activity Log Bell */}
+            <div className="relative" ref={activityLogRef}>
+              <button
+                onClick={() => setIsActivityLogOpen(!isActivityLogOpen)}
+                className="relative p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                data-testid="activity-log-button"
+                aria-label="Activity Log"
+                aria-expanded={isActivityLogOpen}
+              >
+                <Bell className="h-6 w-6" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0 right-0 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Activity Log Panel */}
+              <ActivityLogPanel
+                isOpen={isActivityLogOpen}
+                onClose={() => setIsActivityLogOpen(false)}
+              />
+            </div>
+
+            {/* Burger Menu */}
+            <div className="relative" ref={menuRef}>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -119,6 +151,7 @@ export default function Header({ onOpenSettings, onOpenInfo }: HeaderProps) {
                 </button>
               </div>
             )}
+            </div>
           </div>
         </div>
       </div>

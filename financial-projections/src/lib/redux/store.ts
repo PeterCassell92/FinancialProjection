@@ -3,6 +3,7 @@ import settingsReducer from './settingsSlice';
 import scenarioReducer from './scenarioSlice';
 import bankRecordsReducer from './bankRecordsSlice';
 import bankAccountsReducer from './bankAccountsSlice';
+import activityLogReducer from './activityLogSlice';
 
 export const makeStore = () => {
   return configureStore({
@@ -11,6 +12,7 @@ export const makeStore = () => {
       scenario: scenarioReducer,
       bankRecords: bankRecordsReducer,
       bankAccounts: bankAccountsReducer,
+      activityLog: activityLogReducer,
     },
   });
 };

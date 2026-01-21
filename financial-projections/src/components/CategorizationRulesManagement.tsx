@@ -201,7 +201,7 @@ export default function CategorizationRulesManagement({
             setRules((prev) => [...prev, rule].sort((a, b) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             ));
-            alert(data.error || 'Failed to delete rule');
+            console.error('Failed to delete rule:', data.error);
           }
         } catch (error) {
           console.error('Failed to delete categorization rule:', error);
@@ -209,7 +209,6 @@ export default function CategorizationRulesManagement({
           setRules((prev) => [...prev, rule].sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           ));
-          alert('Failed to delete rule');
         }
       },
     });
@@ -217,7 +216,8 @@ export default function CategorizationRulesManagement({
 
   const handleApplyToExisting = async (ruleId: string) => {
     if (!selectedBankAccountId) {
-      alert('Please select a bank account first');
+      // No alert needed - activity log will show the error
+      console.warn('Please select a bank account first');
       return;
     }
 
@@ -246,14 +246,15 @@ export default function CategorizationRulesManagement({
           const data = await response.json();
 
           if (data.success) {
-            alert(`Successfully applied rule to ${data.data?.transactionsUpdated || 0} transactions`);
+            // Success tracked in activity log - no alert needed
             onRuleApplied?.();
           } else {
-            alert(data.error || 'Failed to apply rule');
+            // Error tracked in activity log - no alert needed
+            console.error('Failed to apply rule:', data.error);
           }
         } catch (error) {
           console.error('Failed to apply categorization rule:', error);
-          alert('Failed to apply rule');
+          // Error tracked in activity log - no alert needed
         } finally {
           setApplyingRuleId(null);
         }
@@ -263,12 +264,12 @@ export default function CategorizationRulesManagement({
 
   const handleApplyAll = async () => {
     if (!selectedBankAccountId) {
-      alert('Please select a bank account first');
+      console.warn('Please select a bank account first');
       return;
     }
 
     if (rules.length === 0) {
-      alert('No categorization rules to apply');
+      console.warn('No categorization rules to apply');
       return;
     }
 
@@ -283,36 +284,27 @@ export default function CategorizationRulesManagement({
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
 
         try {
-          let totalUpdated = 0;
-          let successCount = 0;
+          const response = await fetch('/api/categorization-rules/apply-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bankAccountId: selectedBankAccountId,
+            }),
+          });
 
-          // Apply each rule sequentially
-          for (const rule of rules) {
-            try {
-              const response = await fetch(`/api/categorization-rules/${rule.id}/apply`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  bankAccountId: selectedBankAccountId,
-                }),
-              });
+          const data = await response.json();
 
-              const data = await response.json();
-
-              if (data.success) {
-                totalUpdated += data.data?.transactionsUpdated || 0;
-                successCount++;
-              }
-            } catch (error) {
-              console.error(`Failed to apply rule ${rule.id}:`, error);
-            }
+          if (data.success) {
+            // Success tracked in activity log - no alert needed
+            console.log(data.message);
+            onRuleApplied?.();
+          } else {
+            // Error tracked in activity log - no alert needed
+            console.error('Failed to apply all rules:', data.error);
           }
-
-          alert(`Successfully applied ${successCount} of ${rules.length} rules.\nTotal transactions updated: ${totalUpdated}`);
-          onRuleApplied?.();
         } catch (error) {
           console.error('Failed to apply all rules:', error);
-          alert('Failed to apply all rules');
+          // Error tracked in activity log - no alert needed
         } finally {
           setApplyingAll(false);
         }
@@ -404,7 +396,8 @@ export default function CategorizationRulesManagement({
           const data = await response.json();
 
           if (data.success) {
-            alert(`Successfully removed ${data.data?.spendingTypesRemoved || 0} spending type associations from ${data.data?.transactionsMatched || 0} transactions`);
+            // Success tracked in activity log - no alert needed
+            console.log(`Removed ${data.data?.spendingTypesRemoved || 0} spending type associations from ${data.data?.transactionsMatched || 0} transactions`);
             resetRemoveForm();
             onRuleApplied?.(); // Refresh transactions
           } else {

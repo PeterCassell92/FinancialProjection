@@ -98,6 +98,36 @@ enum UploadOperationStatus {
   PARTIAL // Partially completed (some records failed)
 }
 
+enum ActivityType {
+  CATEGORIZATION_RULE_CREATED
+  CATEGORIZATION_RULE_UPDATED
+  CATEGORIZATION_RULE_DELETED
+  CATEGORIZATION_RULE_APPLIED
+  CATEGORIZATION_RULES_APPLIED_ALL
+  SPENDING_TYPE_CREATED
+  SPENDING_TYPE_UPDATED
+  SPENDING_TYPE_DELETED
+  SPENDING_TYPES_REMOVED
+  TRANSACTION_CREATED
+  TRANSACTION_UPDATED
+  TRANSACTION_DELETED
+  TRANSACTIONS_BULK_DELETED
+  TRANSACTIONS_MASS_UPDATED
+  CSV_UPLOAD_STARTED
+  CSV_UPLOAD_COMPLETED
+  CSV_UPLOAD_FAILED
+  BANK_ACCOUNT_CREATED
+  BANK_ACCOUNT_UPDATED
+  BANK_ACCOUNT_DELETED
+}
+
+enum ActivityStatus {
+  ONGOING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
 model RecurringProjectionEventRule {
   id          String         @id @default(cuid())
   name        String
@@ -406,4 +436,45 @@ model TransactionUploadSource {
   @@index([transactionRecordId])
   @@index([uploadOperationId])
   @@index([csvRowNumber])
+}
+
+// Activity Log (tracks user actions and system operations)
+model ActivityLog {
+  id String @id @default(cuid())
+
+  // User context (for future multi-user support)
+  userId String @default("HumanUser") // Hardcoded for now, future: actual user ID
+
+  // Activity identification
+  activityName        String       // kebab-case from ActivityType enum
+  activityDisplayName String       // Human-friendly display name
+  activityType        ActivityType // Enum value for type safety
+  status              ActivityStatus @default(ONGOING)
+
+  // Timing
+  startTime DateTime @default(now())
+  endTime   DateTime?
+
+  // Result details
+  message      String? // Summary of what was done or error message
+  metadata     Json? // Flexible storage for operation-specific data (counts, IDs, etc.)
+  errorDetails String? // Stack trace or detailed error info
+
+  // Progress tracking (for long-running operations)
+  progress       Int? // 0-100 percentage
+  totalItems     Int? // Total items to process
+  processedItems Int? // Items processed so far
+
+  // Entity context (what was affected)
+  entityType String? // e.g., "TransactionRecord", "CategorizationRule"
+  entityId   String? // ID of the primary affected entity
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([activityType])
+  @@index([status])
+  @@index([startTime])
+  @@index([createdAt])
 }

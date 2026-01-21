@@ -4,6 +4,7 @@ import {
   CategorizationRuleWithSpendingTypes,
 } from '@/lib/dal/categorization-rules';
 import prisma from '@/lib/prisma';
+import { startActivity, completeActivity, failActivity } from '@/lib/services/activity-log-service';
 
 /**
  * POST /api/categorization-rules/[id]/apply
@@ -18,6 +19,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let activity: Awaited<ReturnType<typeof startActivity>> | null = null;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -45,6 +48,17 @@ export async function POST(
         { status: 404 }
       );
     }
+
+    // Start activity tracking
+    activity = await startActivity('CATEGORIZATION_RULE_APPLIED', {
+      entityType: 'CategorizationRule',
+      entityId: rule.id,
+      metadata: {
+        ruleDescription: rule.descriptionString,
+        exactMatch: rule.exactMatch,
+        bankAccountId: body.bankAccountId,
+      },
+    });
 
     // Get all transactions for the bank account
     const transactions = await prisma.transactionRecord.findMany({
@@ -118,6 +132,19 @@ export async function POST(
       });
     }
 
+    // Complete activity tracking
+    if (activity) {
+      await completeActivity(
+        activity.id,
+        `Applied rule to ${transactionsUpdated} transaction(s)`,
+        {
+          transactionsMatched: matchingTransactions.length,
+          transactionsUpdated,
+          spendingTypesAdded: spendingTypeAssociations.length,
+        }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -129,6 +156,15 @@ export async function POST(
     });
   } catch (error: any) {
     console.error('Error applying categorization rule:', error);
+
+    // Fail activity tracking
+    if (activity) {
+      await failActivity(
+        activity.id,
+        'Failed to apply categorization rule',
+        error instanceof Error ? error.stack : String(error)
+      );
+    }
 
     if (error.code === 'P2025') {
       return NextResponse.json(

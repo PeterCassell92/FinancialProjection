@@ -255,6 +255,14 @@ export async function handleToolCall(name: string, args: any): Promise<any> {
         },
       });
 
+    case 'apply_all_categorization_rules':
+      return await apiRequest(`/categorization-rules/apply-all`, {
+        method: 'POST',
+        body: {
+          bankAccountId: args.bankAccountId,
+        },
+      });
+
     case 'remove_spending_type_by_condition':
       return await apiRequest(`/transaction-records/remove-spending-types`, {
         method: 'POST',

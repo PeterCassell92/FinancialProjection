@@ -4,6 +4,7 @@ import { useRef, useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { makeStore, AppStore } from './store';
 import { fetchSettings } from './settingsSlice';
+import ActivityLogSSEProvider from '@/components/ActivityLogSSEProvider';
 
 export default function StoreProvider({
   children,
@@ -24,5 +25,10 @@ export default function StoreProvider({
     }
   }, []);
 
-  return <Provider store={storeRef.current}>{children}</Provider>;
+  return (
+    <Provider store={storeRef.current}>
+      <ActivityLogSSEProvider />
+      {children}
+    </Provider>
+  );
 }

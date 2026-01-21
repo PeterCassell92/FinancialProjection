@@ -1111,6 +1111,57 @@ Apply a categorization rule to all existing transactions for a specific bank acc
 
 **Note:** Only adds spending types that aren't already associated with each transaction. Transactions that already have the spending type(s) are skipped.
 
+### POST /api/categorization-rules/apply-all
+
+Apply all categorization rules to existing transactions for a specific bank account. This is more efficient than applying rules individually as it fetches all rules and transactions once, then processes them in a single operation.
+
+**Request Body:**
+```json
+{
+  "bankAccountId": "uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "rulesProcessed": 5,
+    "rulesSucceeded": 5,
+    "rulesFailed": 0,
+    "totalTransactionsUpdated": 42,
+    "totalSpendingTypesAdded": 58,
+    "results": [
+      {
+        "ruleId": "uuid",
+        "ruleDescription": "SPOTIFY",
+        "success": true,
+        "transactionsUpdated": 12,
+        "spendingTypesAdded": 12
+      },
+      {
+        "ruleId": "uuid",
+        "ruleDescription": "AMAZON",
+        "success": true,
+        "transactionsUpdated": 30,
+        "spendingTypesAdded": 46
+      }
+    ]
+  },
+  "message": "Applied 5 of 5 rules. 42 transactions updated."
+}
+```
+
+**Features:**
+- Fetches all categorization rules and transactions once for efficiency
+- Processes each rule sequentially with progress tracking
+- Returns detailed per-rule results showing success/failure and metrics
+- Creates a single parent activity log entry with progress updates
+- Only adds spending types that aren't already associated with each transaction
+
+**Note:** This endpoint is significantly more efficient than calling `/api/categorization-rules/[id]/apply` repeatedly from the frontend, especially when dealing with many rules or large transaction datasets.
+
 ### POST /api/transaction-records/remove-spending-types
 
 Remove specific spending types from transactions matching a description pattern and optional date range. Useful for undoing incorrect categorizations or cleaning up data.
