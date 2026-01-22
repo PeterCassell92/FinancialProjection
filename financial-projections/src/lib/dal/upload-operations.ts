@@ -58,7 +58,7 @@ export async function getDataFormatByName(name: string): Promise<DataFormat | nu
 /**
  * Get all upload operations
  */
-export async function getAllUploadOperations(): Promise<UploadOperation[]> {
+export async function getAllUploadOperations(): Promise<UploadOperationWithRelations[]> {
   return await prisma.uploadOperation.findMany({
     include: {
       bankAccount: true,
@@ -73,10 +73,11 @@ export async function getAllUploadOperations(): Promise<UploadOperation[]> {
  */
 export async function getUploadOperationsByBankAccount(
   bankAccountId: string
-): Promise<UploadOperation[]> {
+): Promise<UploadOperationWithRelations[]> {
   return await prisma.uploadOperation.findMany({
     where: { bankAccountId },
     include: {
+      bankAccount: true,
       dataFormat: true,
     },
     orderBy: { uploadDateTime: 'desc' },

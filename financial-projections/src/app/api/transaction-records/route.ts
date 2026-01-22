@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     const amountValueParam = searchParams.get('amountValue');
     const pageParam = searchParams.get('page');
     const pageSizeParam = searchParams.get('pageSize');
-    const format = searchParams.get('format') || 'json';
+    const responseFormat = searchParams.get('responseFormat') || 'json';
 
     if (!bankAccountId) {
       const response: ApiResponse = {
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
         : undefined;
 
     // Return TOON format if requested
-    if (format === 'toon') {
+    if (responseFormat === 'toon') {
       const toonData = formatTransactionsAsTOON(serializedTransactions, paginationMetadata);
       const response: ApiResponse<string> = {
         success: true,

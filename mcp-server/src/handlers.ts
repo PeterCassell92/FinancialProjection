@@ -203,6 +203,17 @@ export async function handleToolCall(name: string, args: any): Promise<any> {
       return await apiRequest('/transaction-records/analytics', { params });
     }
 
+    case 'get_balance_history': {
+      const params: Record<string, string> = {
+        bankAccountId: args.bankAccountId,
+        startDate: args.startDate,
+        endDate: args.endDate,
+      };
+      if (args.responseFormat) params.responseFormat = args.responseFormat;
+
+      return await apiRequest('/transaction-records/balance-history', { params });
+    }
+
     // ========== Spending Types ==========
     case 'get_spending_types':
       return await apiRequest('/spending-types');
@@ -225,6 +236,20 @@ export async function handleToolCall(name: string, args: any): Promise<any> {
       return await apiRequest(`/spending-types/${args.id}`, {
         method: 'DELETE',
       });
+
+    // ========== Upload Operations ==========
+    case 'get_upload_operations': {
+      const params: Record<string, string> = {};
+      if (args.bankAccountId) params.bankAccountId = args.bankAccountId;
+      if (args.responseFormat) params.responseFormat = args.responseFormat;
+      return await apiRequest('/upload-operations', { params });
+    }
+
+    case 'get_data_formats': {
+      const params: Record<string, string> = { formats: 'true' };
+      if (args.responseFormat) params.responseFormat = args.responseFormat;
+      return await apiRequest('/upload-operations', { params });
+    }
 
     // ========== Transaction Categorization Rules ==========
     case 'get_categorization_rules':

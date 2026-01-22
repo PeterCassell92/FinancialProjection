@@ -681,7 +681,7 @@ Get transaction records with pagination and filtering.
 - `spendingTypeNames` (optional): Comma-separated list of spending type names to filter by
 - `amountOperator` (optional): Amount comparison operator - `lessThan` or `greaterThan`
 - `amountValue` (optional): Amount value to compare against (filters by absolute value/magnitude)
-- `format` (optional): Response format - `json` (default) or `toon` (compact format, 60-70% fewer tokens)
+- `responseFormat` (optional): Response format - `json` (default) or `toon` (compact format, 60-70% fewer tokens)
 
 **Amount Filter Behavior:**
 - The amount filter compares the **absolute value (magnitude)** of transactions
@@ -849,7 +849,7 @@ Get transaction analytics grouped by spending categories and monthly trends.
 - `bankAccountId` (required): UUID of the bank account
 - `startDate` (optional): ISO date string (YYYY-MM-DD) for filtering from date
 - `endDate` (optional): ISO date string (YYYY-MM-DD) for filtering to date
-- `format` (optional): Response format - `json` (default) or `toon` (compact format, 60-70% fewer tokens)
+- `responseFormat` (optional): Response format - `json` (default) or `toon` (compact format, 60-70% fewer tokens)
 
 **Response:**
 ```json
@@ -902,6 +902,66 @@ Get transaction analytics grouped by spending categories and monthly trends.
 - Uncategorized transactions (with no spending types) are grouped under "Uncategorized"
 - Monthly spending data is sorted chronologically by month
 - Category data is sorted by total debit amount (expenses) in descending order
+
+### GET /api/transaction-records/balance-history
+
+Get daily account balances over a date range with statistics.
+
+**Query Parameters:**
+- `bankAccountId` (required): UUID of the bank account
+- `startDate` (required): ISO date string (YYYY-MM-DD) for start of range
+- `endDate` (required): ISO date string (YYYY-MM-DD) for end of range
+- `responseFormat` (optional): Response format - `json` (default) or `toon` (compact format)
+
+**Response (JSON format):**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "date": "13/02/2025",
+        "currency": "£",
+        "balance": -50.02,
+        "isNegative": true
+      },
+      {
+        "date": "14/02/2025",
+        "currency": "£",
+        "balance": 123.45,
+        "isNegative": false
+      }
+    ],
+    "stats": {
+      "positiveDays": 45,
+      "negativeDays": 2,
+      "zeroDays": 0,
+      "totalDays": 47,
+      "averageBalance": 567.89,
+      "minBalance": -50.02,
+      "maxBalance": 1234.56
+    }
+  }
+}
+```
+
+**Response (TOON format):**
+```json
+{
+  "success": true,
+  "data": {
+    "items": "13/02/2025|£-50.02|NEG\n14/02/2025|£123.45|POS",
+    "stats": "POS:45|NEG:2|ZERO:0|TOTAL:47|AVG:567.89|MIN:-50.02|MAX:1234.56"
+  }
+}
+```
+
+**Notes:**
+- Returns the last balance of each day (end-of-day balance)
+- Dates are formatted according to user settings
+- Currency symbol is based on user settings
+- Statistics include positive, negative, and zero balance days
+- Balance amounts are rounded to 2 decimal places
 
 ---
 
@@ -1233,6 +1293,82 @@ Remove specific spending types from transactions matching a description pattern 
 - Create exact match rule for `"SPOTIFY"` → automatically tag as "Entertainment"
 - Create partial match rule for `"TESCO"` → automatically tag as "Groceries" (matches "TESCO STORES", "TESCO EXPRESS", etc.)
 - Create partial match rule for `"AMAZON"` → automatically tag as "Shopping"
+
+---
+
+## Upload Operations
+
+### GET /api/upload-operations
+
+Get upload operations (file upload history), optionally filtered by bank account, or get available data formats.
+
+**Query Parameters:**
+- `bankAccountId` (optional): UUID to filter operations by bank account
+- `formats` (optional): Set to `'true'` to get data formats instead of operations
+- `responseFormat` (optional): Response format - `json` (default) or `toon` (compact format)
+
+**Response (Upload Operations, JSON):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "createdAt": "2026-01-22T10:00:00.000Z",
+      "filename": "transactions_jan_2026.csv",
+      "operationStatus": "COMPLETED",
+      "numberOfRecords": 150,
+      "earliestDate": "2026-01-01T00:00:00.000Z",
+      "latestDate": "2026-01-31T00:00:00.000Z",
+      "bankAccount": {
+        "name": "Main Current Account"
+      },
+      "dataFormat": {
+        "name": "Barclays CSV"
+      }
+    }
+  ]
+}
+```
+
+**Response (Upload Operations, TOON):**
+```json
+{
+  "success": true,
+  "data": "abc12345|2026-01-22|COMPLETED|150|Main Current Account|Barclays CSV|transactions_jan_2026.csv\ndef67890|2026-01-20|PENDING|0|N/A|Monzo CSV|transactions_jan_2026.csv"
+}
+```
+
+**TOON Format**: `ID|Date|Status|Records|Bank Account|Format|Filename`
+
+**Response (Data Formats, JSON):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Barclays CSV",
+      "description": "Barclays bank CSV export format"
+    }
+  ]
+}
+```
+
+**Response (Data Formats, TOON):**
+```json
+{
+  "success": true,
+  "data": "abc12345|Barclays CSV|Barclays bank CSV export format\ndef67890|Monzo CSV|Monzo bank CSV export format"
+}
+```
+
+**TOON Format**: `ID|Name|Description`
+
+**Notes:**
+- Use `?formats=true` to get available data formats for CSV uploads
+- Upload operations include full details about file uploads and processing status
+- Operation statuses: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
 
 ---
 

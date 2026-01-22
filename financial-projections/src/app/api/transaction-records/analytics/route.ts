@@ -8,7 +8,7 @@ const analyticsQuerySchema = z.object({
   bankAccountId: z.string(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  format: z.enum(['json', 'toon']).optional().default('json'),
+  responseFormat: z.enum(['json', 'toon']).optional().default('json'),
 });
 
 /**
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       bankAccountId: searchParams.get('bankAccountId'),
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
-      format: searchParams.get('format') || 'json',
+      responseFormat: searchParams.get('responseFormat') || 'json',
     };
 
     const validation = analyticsQuerySchema.safeParse(queryParams);
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { bankAccountId, startDate, endDate, format } = validation.data;
+    const { bankAccountId, startDate, endDate, responseFormat } = validation.data;
 
     // Build where clause
     const whereClause: TransactionRecordWhereClause = {
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Return TOON format if requested
-    if (format === 'toon') {
+    if (responseFormat === 'toon') {
       const toonData = formatAnalyticsAsTOON(analyticsData);
       return NextResponse.json(
         {

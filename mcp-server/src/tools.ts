@@ -426,6 +426,20 @@ export const tools: Tool[] = [
       required: ['bankAccountId'],
     },
   },
+  {
+    name: 'get_balance_history',
+    description: 'Get daily account balances over a date range with statistics (positive days, negative days, average balance, etc). Returns end-of-day balances for each day.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bankAccountId: { type: 'string', description: 'Bank account UUID' },
+        startDate: { type: 'string', description: 'Start date (YYYY-MM-DD) - required' },
+        endDate: { type: 'string', description: 'End date (YYYY-MM-DD) - required' },
+        responseFormat: { type: 'string', enum: ['json', 'toon'], description: 'Response format - "json" (default) or "toon" (compact)' },
+      },
+      required: ['bankAccountId', 'startDate', 'endDate'],
+    },
+  },
 
   // ========== Spending Types ==========
   {
@@ -472,6 +486,29 @@ export const tools: Tool[] = [
         id: { type: 'string', description: 'Spending type UUID' },
       },
       required: ['id'],
+    },
+  },
+
+  // ========== Upload Operations ==========
+  {
+    name: 'get_upload_operations',
+    description: 'Get upload operations (file upload history) with optional bank account filter. Returns details about CSV file uploads including status, record counts, and date ranges.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bankAccountId: { type: 'string', description: 'Optional: Bank account UUID to filter operations' },
+        responseFormat: { type: 'string', enum: ['json', 'toon'], description: 'Response format - "json" (default) or "toon" (compact)' },
+      },
+    },
+  },
+  {
+    name: 'get_data_formats',
+    description: 'Get available data formats for CSV uploads (e.g., Barclays CSV, Monzo CSV)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        responseFormat: { type: 'string', enum: ['json', 'toon'], description: 'Response format - "json" (default) or "toon" (compact)' },
+      },
     },
   },
 

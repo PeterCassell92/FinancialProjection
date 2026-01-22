@@ -12,8 +12,10 @@ A Next.js application for personal financial projections, allowing users to proj
 - **Database**: PostgreSQL (local)
 - **ORM**: Prisma
 - **Styling**: Tailwind CSS v4
-- **State Management**: React Context API
+- **State Management**: React Context API + Redux Toolkit
 - **Testing**: Jest + Docker-isolated test environment
+- **Package Manager**: yarn (for both main app and MCP server)
+- **MCP Server**: TypeScript-based Model Context Protocol server for AI assistant integration
 
 ## Project Goals
 
