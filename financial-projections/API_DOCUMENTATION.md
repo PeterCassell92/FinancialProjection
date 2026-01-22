@@ -677,7 +677,18 @@ Get transaction records with pagination and filtering.
 - `startDate` (optional): Filter from date
 - `endDate` (optional): Filter to date
 - `description` (optional): Search in description
+- `spendingTypeIds` (optional): Comma-separated list of spending type UUIDs to filter by
+- `spendingTypeNames` (optional): Comma-separated list of spending type names to filter by
+- `amountOperator` (optional): Amount comparison operator - `lessThan` or `greaterThan`
+- `amountValue` (optional): Amount value to compare against (filters by absolute value/magnitude)
 - `format` (optional): Response format - `json` (default) or `toon` (compact format, 60-70% fewer tokens)
+
+**Amount Filter Behavior:**
+- The amount filter compares the **absolute value (magnitude)** of transactions
+- For example, `amountOperator=greaterThan&amountValue=100` will match both:
+  - Debits of £150 (debitAmount = 150)
+  - Credits of £150 (creditAmount = 150)
+- Negative values are "de-negatived" (converted to positive) for comparison
 
 **Response:**
 ```json

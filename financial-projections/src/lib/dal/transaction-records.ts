@@ -44,12 +44,14 @@ export interface GetTransactionRecordsOptions {
   description?: string;      // Partial match search on transaction description
   spendingTypeIds?: string[]; // Filter by spending type IDs
   spendingTypeNames?: string[]; // Filter by spending type names (will be converted to IDs)
+  amountOperator?: 'lessThan' | 'greaterThan';  // Amount comparison operator
+  amountValue?: number;      // Amount value to compare against (magnitude)
   page?: number;             // Page number (1-indexed)
   pageSize?: number;         // Number of records per page
 }
 
 /**
- * Get transaction records for a bank account with optional date range, description search, spending type filtering, and pagination
+ * Get transaction records for a bank account with optional date range, description search, spending type filtering, amount filtering, and pagination
  * Results are sorted by transaction date (desc), then by CSV row number (asc) for same-day transactions
  */
 export async function getTransactionRecords(
@@ -60,7 +62,9 @@ export async function getTransactionRecords(
   pageSize?: number,
   description?: string,
   spendingTypeIds?: string[],
-  spendingTypeNames?: string[]
+  spendingTypeNames?: string[],
+  amountOperator?: 'lessThan' | 'greaterThan',
+  amountValue?: number
 ): Promise<TransactionRecordWithSpendingTypes[]> {
   const where: Prisma.TransactionRecordWhereInput = {
     bankAccountId,
@@ -117,6 +121,31 @@ export async function getTransactionRecords(
     };
   }
 
+  // Apply amount filter
+  // Since amounts are stored as positive values in debit/credit fields,
+  // we can directly filter on them
+  if (amountOperator && amountValue !== undefined) {
+    const amountConditions: Prisma.TransactionRecordWhereInput[] = [];
+
+    if (amountOperator === 'lessThan') {
+      // Transactions where amount is less than amountValue
+      amountConditions.push(
+        { debitAmount: { not: null, lt: amountValue } },
+        { creditAmount: { not: null, lt: amountValue } }
+      );
+    } else if (amountOperator === 'greaterThan') {
+      // Transactions where amount is greater than amountValue
+      amountConditions.push(
+        { debitAmount: { not: null, gt: amountValue } },
+        { creditAmount: { not: null, gt: amountValue } }
+      );
+    }
+
+    if (amountConditions.length > 0) {
+      where.OR = amountConditions;
+    }
+  }
+
   // Calculate pagination
   const skip = page && pageSize ? (page - 1) * pageSize : undefined;
   const take = pageSize;
@@ -170,7 +199,9 @@ export async function getTransactionRecordsCount(
   endDate?: Date,
   description?: string,
   spendingTypeIds?: string[],
-  spendingTypeNames?: string[]
+  spendingTypeNames?: string[],
+  amountOperator?: 'lessThan' | 'greaterThan',
+  amountValue?: number
 ): Promise<number> {
   const where: Prisma.TransactionRecordWhereInput = {
     bankAccountId,
@@ -225,6 +256,31 @@ export async function getTransactionRecordsCount(
         },
       },
     };
+  }
+
+  // Apply amount filter
+  // Since amounts are stored as positive values in debit/credit fields,
+  // we can directly filter on them
+  if (amountOperator && amountValue !== undefined) {
+    const amountConditions: Prisma.TransactionRecordWhereInput[] = [];
+
+    if (amountOperator === 'lessThan') {
+      // Transactions where amount is less than amountValue
+      amountConditions.push(
+        { debitAmount: { not: null, lt: amountValue } },
+        { creditAmount: { not: null, lt: amountValue } }
+      );
+    } else if (amountOperator === 'greaterThan') {
+      // Transactions where amount is greater than amountValue
+      amountConditions.push(
+        { debitAmount: { not: null, gt: amountValue } },
+        { creditAmount: { not: null, gt: amountValue } }
+      );
+    }
+
+    if (amountConditions.length > 0) {
+      where.OR = amountConditions;
+    }
   }
 
   return await prisma.transactionRecord.count({ where });

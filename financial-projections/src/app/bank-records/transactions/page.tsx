@@ -18,6 +18,7 @@ import {
   selectPagination,
   setCurrentPage,
   setRecordsPerPage,
+  selectFilters,
 } from '@/lib/redux/bankRecordsSlice';
 import {
   fetchBankAccounts,
@@ -87,6 +88,7 @@ export default function TransactionsPage() {
   const defaultBankAccountId = useAppSelector(selectDefaultBankAccountId);
   const enableTransactionDeletion = useAppSelector(selectEnableTransactionDeletion);
   const pagination = useAppSelector(selectPagination);
+  const filters = useAppSelector(selectFilters);
 
   // Local state
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
@@ -95,6 +97,7 @@ export default function TransactionsPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [spendingTypeFilterEnabled, setSpendingTypeFilterEnabled] = useState(false);
 
   // Fetch initial data from Redux
   useEffect(() => {
@@ -530,7 +533,9 @@ export default function TransactionsPage() {
           {/* Sidebar - Filters and Management */}
           <div className="space-y-6">
             {/* Filters Section */}
-            <TransactionRecordsTableFilters />
+            <TransactionRecordsTableFilters
+              onSpendingTypeFilterEnabledChange={setSpendingTypeFilterEnabled}
+            />
 
             {/* Categorization Rules Management */}
             <CategorizationRulesManagement
@@ -552,6 +557,7 @@ export default function TransactionsPage() {
             <SpendingTypeManagement
               spendingTypes={spendingTypes}
               onSpendingTypeCreated={() => dispatch(fetchSpendingTypes())}
+              filterEnabled={spendingTypeFilterEnabled}
             />
           </div>
         </div>

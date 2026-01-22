@@ -170,6 +170,11 @@ export async function handleToolCall(name: string, args: any): Promise<any> {
       };
       if (args.startDate) params.startDate = args.startDate;
       if (args.endDate) params.endDate = args.endDate;
+      if (args.description) params.description = args.description;
+      if (args.spendingTypeIds) params.spendingTypeIds = args.spendingTypeIds;
+      if (args.spendingTypeNames) params.spendingTypeNames = args.spendingTypeNames;
+      if (args.amountOperator) params.amountOperator = args.amountOperator;
+      if (args.amountValue !== undefined) params.amountValue = args.amountValue.toString();
       if (args.page) params.page = args.page.toString();
       if (args.pageSize) params.pageSize = args.pageSize.toString();
 

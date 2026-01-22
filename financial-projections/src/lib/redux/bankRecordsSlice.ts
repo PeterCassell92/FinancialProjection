@@ -32,6 +32,9 @@ interface TransactionFilters {
   startDate: string | null;    // ISO date string
   endDate: string | null;      // ISO date string
   description: string | null;  // Partial match search on transaction description
+  spendingTypeIds: string[];   // Filter by spending type IDs
+  amountOperator: 'lessThan' | 'greaterThan' | null;  // Amount comparison operator
+  amountValue: number | null;  // Amount value to compare against (magnitude)
 }
 
 interface TransactionPagination {
@@ -67,6 +70,9 @@ const initialState: BankRecordsState = {
     startDate: null,
     endDate: null,
     description: null,
+    spendingTypeIds: [],
+    amountOperator: null,
+    amountValue: null,
   },
   pagination: {
     currentPage: 1,
@@ -117,6 +123,13 @@ export const fetchTransactions = createAsyncThunk(
       }
       if (filters.description) {
         params.append('description', filters.description);
+      }
+      if (filters.spendingTypeIds.length > 0) {
+        filters.spendingTypeIds.forEach(id => params.append('spendingTypeIds', id));
+      }
+      if (filters.amountOperator && filters.amountValue !== null) {
+        params.append('amountOperator', filters.amountOperator);
+        params.append('amountValue', filters.amountValue.toString());
       }
 
       const response = await fetch(`/api/transaction-records?${params.toString()}`);
@@ -269,7 +282,14 @@ const bankRecordsSlice = createSlice({
       state.pagination.currentPage = 1; // Reset to first page when filters change
     },
     clearFilters: (state) => {
-      state.filters = { startDate: null, endDate: null, description: null };
+      state.filters = {
+        startDate: null,
+        endDate: null,
+        description: null,
+        spendingTypeIds: [],
+        amountOperator: null,
+        amountValue: null
+      };
       state.pagination.currentPage = 1;
     },
     setCurrentPage: (state, action: PayloadAction<number>) => {
@@ -278,6 +298,18 @@ const bankRecordsSlice = createSlice({
     setRecordsPerPage: (state, action: PayloadAction<number>) => {
       state.pagination.recordsPerPage = action.payload;
       state.pagination.currentPage = 1; // Reset to first page when page size changes
+    },
+    toggleSpendingTypeFilter: (state, action: PayloadAction<string>) => {
+      const spendingTypeId = action.payload;
+      const index = state.filters.spendingTypeIds.indexOf(spendingTypeId);
+
+      if (index === -1) {
+        // Add to filters
+        state.filters.spendingTypeIds.push(spendingTypeId);
+      } else {
+        // Remove from filters
+        state.filters.spendingTypeIds.splice(index, 1);
+      }
     },
   },
   extraReducers: (builder) => {
@@ -359,6 +391,7 @@ export const {
   clearFilters,
   setCurrentPage,
   setRecordsPerPage,
+  toggleSpendingTypeFilter,
 } = bankRecordsSlice.actions;
 
 // Selectors - type will be inferred when imported with RootState

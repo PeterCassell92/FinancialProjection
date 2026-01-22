@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useAppDispatch, useAppSelector } from '@/lib/redux/hooks';
+import { toggleSpendingTypeFilter, selectFilters } from '@/lib/redux/bankRecordsSlice';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,12 +19,17 @@ interface SpendingType {
 interface SpendingTypeManagementProps {
   spendingTypes: SpendingType[];
   onSpendingTypeCreated: () => void;
+  filterEnabled?: boolean;
 }
 
 export default function SpendingTypeManagement({
   spendingTypes,
   onSpendingTypeCreated,
+  filterEnabled = false,
 }: SpendingTypeManagementProps) {
+  const dispatch = useAppDispatch();
+  const filters = useAppSelector(selectFilters);
+
   const [collapsed, setCollapsed] = useState(false);
   const [createFormCollapsed, setCreateFormCollapsed] = useState(spendingTypes.length > 10);
   const [newName, setNewName] = useState('');
@@ -67,6 +74,16 @@ export default function SpendingTypeManagement({
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleDoubleClick = (spendingTypeId: string) => {
+    if (filterEnabled) {
+      dispatch(toggleSpendingTypeFilter(spendingTypeId));
+    }
+  };
+
+  const isFilterActive = (spendingTypeId: string) => {
+    return filters.spendingTypeIds.includes(spendingTypeId);
   };
 
   return (
@@ -172,29 +189,43 @@ export default function SpendingTypeManagement({
           </p>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {spendingTypes.map((type) => (
-              <div
-                key={type.id}
-                className="p-3 bg-gray-50 rounded-md border border-gray-200"
-                data-testid={`spending-type-item__${type.id}`}
-              >
-                <div className="flex items-center gap-2">
-                  {type.color && (
-                    <div
-                      className="w-4 h-4 rounded border border-gray-300 flex-shrink-0"
-                      style={{ backgroundColor: type.color }}
-                      title={type.color}
-                    />
-                  )}
-                  <div className="font-medium text-gray-900">{type.name}</div>
-                </div>
-                {type.description && (
-                  <div className="text-sm text-gray-600 mt-1">
-                    {type.description}
+            {spendingTypes.map((type) => {
+              const isActive = isFilterActive(type.id);
+              return (
+                <div
+                  key={type.id}
+                  className={`p-3 bg-gray-50 rounded-md border-2 transition-colors ${
+                    filterEnabled ? 'cursor-pointer hover:bg-gray-100' : 'cursor-not-allowed opacity-60'
+                  } ${
+                    isActive ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                  }`}
+                  data-testid={`spending-type-item__${type.id}`}
+                  onDoubleClick={() => handleDoubleClick(type.id)}
+                  title={filterEnabled ? 'Double-click to toggle filter' : 'Enable "Filter by Selected Spending Types" in the Filters section to use this feature'}
+                >
+                  <div className="flex items-center gap-2">
+                    {type.color && (
+                      <div
+                        className="w-4 h-4 rounded border border-gray-300 flex-shrink-0"
+                        style={{ backgroundColor: type.color }}
+                        title={type.color}
+                      />
+                    )}
+                    <div className="font-medium text-gray-900">{type.name}</div>
+                    {isActive && (
+                      <span className="ml-auto text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                        Filtered
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
+                  {type.description && (
+                    <div className="text-sm text-gray-600 mt-1">
+                      {type.description}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
         </div>

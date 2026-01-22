@@ -55,7 +55,7 @@ function serializeTransactionRecord(transaction: TransactionRecordWithSpendingTy
 
 /**
  * GET /api/transaction-records
- * Get transaction records for a bank account with optional date filtering, description search, spending type filtering, and pagination
+ * Get transaction records for a bank account with optional date filtering, description search, spending type filtering, amount filtering, and pagination
  *
  * Query parameters:
  * - bankAccountId (required): Bank account ID
@@ -64,6 +64,8 @@ function serializeTransactionRecord(transaction: TransactionRecordWithSpendingTy
  * - description (optional): Partial match search on transaction description (case-insensitive)
  * - spendingTypeIds (optional): Comma-separated list of spending type IDs to filter by
  * - spendingTypeNames (optional): Comma-separated list of spending type names to filter by
+ * - amountOperator (optional): Amount comparison operator - 'lessThan' or 'greaterThan'
+ * - amountValue (optional): Amount value to compare against (magnitude)
  * - page (optional): Page number (1-indexed, default: no pagination)
  * - pageSize (optional): Number of records per page (default: no pagination)
  * - format (optional): Response format - 'json' (default) or 'toon' (compact format for AI)
@@ -77,6 +79,8 @@ export async function GET(request: NextRequest) {
     const description = searchParams.get('description');
     const spendingTypeIdsParam = searchParams.get('spendingTypeIds');
     const spendingTypeNamesParam = searchParams.get('spendingTypeNames');
+    const amountOperatorParam = searchParams.get('amountOperator');
+    const amountValueParam = searchParams.get('amountValue');
     const pageParam = searchParams.get('page');
     const pageSizeParam = searchParams.get('pageSize');
     const format = searchParams.get('format') || 'json';
@@ -93,6 +97,8 @@ export async function GET(request: NextRequest) {
     const endDateObj = endDate ? new Date(endDate) : undefined;
     const spendingTypeIds = spendingTypeIdsParam ? spendingTypeIdsParam.split(',').map(id => id.trim()) : undefined;
     const spendingTypeNames = spendingTypeNamesParam ? spendingTypeNamesParam.split(',').map(name => name.trim()) : undefined;
+    const amountOperator = (amountOperatorParam === 'lessThan' || amountOperatorParam === 'greaterThan') ? amountOperatorParam : undefined;
+    const amountValue = amountValueParam ? parseFloat(amountValueParam) : undefined;
     const page = pageParam ? parseInt(pageParam, 10) : undefined;
     const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : undefined;
 
@@ -123,7 +129,9 @@ export async function GET(request: NextRequest) {
         pageSize,
         description || undefined,
         spendingTypeIds,
-        spendingTypeNames
+        spendingTypeNames,
+        amountOperator,
+        amountValue
       ),
       page && pageSize
         ? getTransactionRecordsCount(
@@ -132,7 +140,9 @@ export async function GET(request: NextRequest) {
             endDateObj,
             description || undefined,
             spendingTypeIds,
-            spendingTypeNames
+            spendingTypeNames,
+            amountOperator,
+            amountValue
           )
         : Promise.resolve(undefined),
     ]);

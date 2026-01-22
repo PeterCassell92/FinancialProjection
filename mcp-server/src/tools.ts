@@ -356,13 +356,18 @@ export const tools: Tool[] = [
   // ========== Transaction Records ==========
   {
     name: 'get_transaction_records',
-    description: 'Get transaction records (imported from bank statements)',
+    description: 'Get transaction records (imported from bank statements) with optional filtering by date, description, spending types, and amount (magnitude)',
     inputSchema: {
       type: 'object',
       properties: {
         bankAccountId: { type: 'string', description: 'Bank account UUID' },
         startDate: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
         endDate: { type: 'string', description: 'End date (YYYY-MM-DD)' },
+        description: { type: 'string', description: 'Search in transaction description (case-insensitive partial match)' },
+        spendingTypeIds: { type: 'string', description: 'Comma-separated list of spending type UUIDs to filter by' },
+        spendingTypeNames: { type: 'string', description: 'Comma-separated list of spending type names to filter by' },
+        amountOperator: { type: 'string', enum: ['lessThan', 'greaterThan'], description: 'Amount comparison operator (compares absolute value/magnitude)' },
+        amountValue: { type: 'number', description: 'Amount value to compare against (magnitude). Example: 100 will match both £100 debits and £100 credits' },
         page: { type: 'number', description: 'Page number (1-based)' },
         pageSize: { type: 'number', description: 'Results per page' },
       },
