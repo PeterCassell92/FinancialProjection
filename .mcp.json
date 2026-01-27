@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "testnexus": {
+      "command": "node",
+      "args": [
+        "/home/pete/Documents/LocalMCP/TestNexusMCP/mcp/dist/index.js"
+      ]
+    }
+  }
+}
