@@ -16,6 +16,12 @@ import {
 } from '@/lib/schemas';
 import { startOfDay } from 'date-fns';
 import { Currency, DateFormat } from '@prisma/client';
+import {
+  handleApiError,
+  createSuccessResponse,
+  createNotFoundResponse,
+  createValidationErrorResponse,
+} from '@/lib/api/error-response';
 
 /**
  * GET /api/settings
@@ -33,11 +39,7 @@ export async function GET() {
 
     // At this point settings should exist
     if (!settings) {
-      const response: SettingsGetResponse = {
-        success: false,
-        error: 'Failed to create settings',
-      };
-      return NextResponse.json(response, { status: 500 });
+      return createNotFoundResponse('Settings');
     }
 
     const response: SettingsGetResponse = {
@@ -58,11 +60,7 @@ export async function GET() {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching settings:', error);
-    const response: SettingsGetResponse = {
-      success: false,
-      error: 'Failed to fetch settings',
-    };
-    return NextResponse.json(response, { status: 500 });
+    return handleApiError(error);
   }
 }
 
@@ -77,11 +75,10 @@ export async function PUT(request: NextRequest) {
     // Validate request body with Zod
     const validation = SettingsPutRequestSchema.safeParse(body);
     if (!validation.success) {
-      const response: SettingsPutResponse = {
-        success: false,
-        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
-      };
-      return NextResponse.json(response, { status: 400 });
+      return createValidationErrorResponse(
+        'body',
+        validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+      );
     }
 
     const validatedData = validation.data;
@@ -91,11 +88,10 @@ export async function PUT(request: NextRequest) {
     if (validatedData.initialBalanceDate) {
       balanceDate = new Date(validatedData.initialBalanceDate);
       if (isNaN(balanceDate.getTime())) {
-        const response: SettingsPutResponse = {
-          success: false,
-          error: 'initialBalanceDate must be a valid date',
-        };
-        return NextResponse.json(response, { status: 400 });
+        return createValidationErrorResponse(
+          'initialBalanceDate',
+          'initialBalanceDate must be a valid date'
+        );
       }
     }
 
@@ -105,11 +101,7 @@ export async function PUT(request: NextRequest) {
     // Update settings
     const currentSettings = await getOrCreateSettings();
     if (!currentSettings) {
-      const response: SettingsPutResponse = {
-        success: false,
-        error: 'Failed to get or create settings',
-      };
-      return NextResponse.json(response, { status: 500 });
+      return createNotFoundResponse('Settings');
     }
 
     const updatedSettings = await updateSettings(
@@ -154,11 +146,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error updating settings:', error);
-    const response: SettingsPutResponse = {
-      success: false,
-      error: 'Failed to update settings',
-    };
-    return NextResponse.json(response, { status: 500 });
+    return handleApiError(error);
   }
 }
 
@@ -173,11 +161,10 @@ export async function PATCH(request: NextRequest) {
     // Validate request body with Zod
     const validation = SettingsPatchRequestSchema.safeParse(body);
     if (!validation.success) {
-      const response: SettingsPatchResponse = {
-        success: false,
-        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
-      };
-      return NextResponse.json(response, { status: 400 });
+      return createValidationErrorResponse(
+        'body',
+        validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+      );
     }
 
     const validatedData = validation.data;
@@ -185,11 +172,7 @@ export async function PATCH(request: NextRequest) {
     // Get current settings
     const currentSettings = await getOrCreateSettings();
     if (!currentSettings) {
-      const response: SettingsPatchResponse = {
-        success: false,
-        error: 'Failed to get or create settings',
-      };
-      return NextResponse.json(response, { status: 500 });
+      return createNotFoundResponse('Settings');
     }
 
     // Update only the provided fields
@@ -219,10 +202,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error updating settings:', error);
-    const response: SettingsPatchResponse = {
-      success: false,
-      error: 'Failed to update settings',
-    };
-    return NextResponse.json(response, { status: 500 });
+    return handleApiError(error);
   }
 }

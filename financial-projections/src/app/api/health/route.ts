@@ -1,30 +1,22 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { checkDatabaseHealth } from '@/lib/dal/health-check';
 
 /**
- * GET /api/health
- * Health check endpoint for Docker container monitoring
+ * Health check endpoint
+ * Returns the health status of the application and its dependencies
  */
 export async function GET() {
-  try {
-    // Check database connectivity
-    await prisma.$queryRaw`SELECT 1`;
+  const dbHealth = await checkDatabaseHealth();
 
-    return NextResponse.json({
-      status: 'healthy',
+  const overallHealth = dbHealth.isConnected;
+
+  return NextResponse.json(
+    {
+      status: overallHealth ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
-      database: 'connected',
-    });
-  } catch (error) {
-    console.error('Health check failed:', error);
-    return NextResponse.json(
-      {
-        status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        database: 'disconnected',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 503 }
-    );
-  }
+      database: dbHealth,
+      version: process.env.npm_package_version || 'unknown',
+    },
+    { status: overallHealth ? 200 : 503 }
+  );
 }

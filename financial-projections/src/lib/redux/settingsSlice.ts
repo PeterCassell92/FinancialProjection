@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Currency, DateFormat } from '@prisma/client';
+import { AppError, ErrorType } from '@/lib/errors/types';
 
 export interface SettingsState {
   id: string | null;
@@ -11,7 +12,7 @@ export interface SettingsState {
   createdAt: string | null;
   updatedAt: string | null;
   loading: boolean;
-  error: string | null;
+  error: AppError | null;
 }
 
 const initialState: SettingsState = {
@@ -30,15 +31,27 @@ const initialState: SettingsState = {
 // Async thunks for API calls
 export const fetchSettings = createAsyncThunk(
   'settings/fetch',
-  async () => {
-    const response = await fetch('/api/settings');
-    const data = await response.json();
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch('/api/settings');
+      const data = await response.json();
 
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to fetch settings');
+      if (!data.success) {
+        // Return the structured error from the API
+        return rejectWithValue(data.error);
+      }
+
+      return data.data;
+    } catch (error) {
+      // Network or other error
+      return rejectWithValue({
+        type: ErrorType.NETWORK,
+        message: 'Network error',
+        userMessage: 'Failed to connect to the server. Please check your connection.',
+        retryable: true,
+        timestamp: new Date(),
+      });
     }
-
-    return data.data;
   }
 );
 
@@ -50,20 +63,30 @@ export const updateSettings = createAsyncThunk(
     currency?: Currency;
     dateFormat?: DateFormat;
     defaultBankAccountId?: string;
-  }) => {
-    const response = await fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
+  }, { rejectWithValue }) => {
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to update settings');
+      if (!data.success) {
+        return rejectWithValue(data.error);
+      }
+
+      return data.data;
+    } catch (error) {
+      return rejectWithValue({
+        type: ErrorType.NETWORK,
+        message: 'Network error',
+        userMessage: 'Failed to connect to the server. Please check your connection.',
+        retryable: true,
+        timestamp: new Date(),
+      });
     }
-
-    return data.data;
   }
 );
 
@@ -95,7 +118,13 @@ const settingsSlice = createSlice({
       })
       .addCase(fetchSettings.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch settings';
+        state.error = (action.payload as AppError) || {
+          type: ErrorType.UNKNOWN,
+          message: action.error.message || 'Failed to fetch settings',
+          userMessage: 'Failed to fetch settings. Please try again.',
+          retryable: true,
+          timestamp: new Date(),
+        };
       })
       // Update settings
       .addCase(updateSettings.pending, (state) => {
@@ -115,7 +144,13 @@ const settingsSlice = createSlice({
       })
       .addCase(updateSettings.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to update settings';
+        state.error = (action.payload as AppError) || {
+          type: ErrorType.UNKNOWN,
+          message: action.error.message || 'Failed to update settings',
+          userMessage: 'Failed to update settings. Please try again.',
+          retryable: true,
+          timestamp: new Date(),
+        };
       });
   },
 });

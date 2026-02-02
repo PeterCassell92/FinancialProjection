@@ -6,9 +6,12 @@ import { format, addMonths, startOfMonth } from 'date-fns';
 import Header from '@/components/Header';
 import FullScreenSettingsModal from '@/components/FullScreenSettingsModal';
 import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
-import { updateSettings } from '@/lib/redux/settingsSlice';
+import { updateSettings, fetchSettings } from '@/lib/redux/settingsSlice';
 import { formatCurrency } from '@/lib/utils/currency';
 import { Currency, DateFormat } from '@prisma/client';
+import { ErrorType } from '@/lib/errors/types';
+import { DatabaseConnectionError } from '@/components/DatabaseConnectionError';
+import { ErrorDisplay } from '@/components/ErrorDisplay';
 
 export default function Dashboard() {
   const dispatch = useAppDispatch();
@@ -59,11 +62,26 @@ export default function Dashboard() {
     setMonthOffset(0);
   };
 
+  const handleRetryFetchSettings = () => {
+    dispatch(fetchSettings());
+  };
+
+  // Show loading state
   if (settings.loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50" data-testid="dashboard-loading">
         <div className="text-gray-600">Loading...</div>
       </div>
+    );
+  }
+
+  // Show database connection error as full-page error
+  if (settings.error?.type === ErrorType.DATABASE_CONNECTION) {
+    return (
+      <DatabaseConnectionError
+        onRetry={handleRetryFetchSettings}
+        technicalDetails={settings.error.technicalDetails}
+      />
     );
   }
 
@@ -76,10 +94,14 @@ export default function Dashboard() {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Display */}
-        {settings.error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4" data-testid="dashboard-error">
-            <p className="text-red-800">{settings.error}</p>
+        {/* Error Display - show other errors inline */}
+        {settings.error && settings.error.type !== ErrorType.DATABASE_CONNECTION && (
+          <div className="mb-6" data-testid="dashboard-error">
+            <ErrorDisplay
+              error={settings.error}
+              onRetry={handleRetryFetchSettings}
+              variant="inline"
+            />
           </div>
         )}
 
