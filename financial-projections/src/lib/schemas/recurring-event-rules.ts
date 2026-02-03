@@ -97,7 +97,7 @@ export const RecurringEventRuleUpdateRequestSchema = z.object({
   bankAccountId: z.string().optional(),
   startDate: z.string().optional(), // ISO date string
   endDate: z.string().optional(),   // ISO date string
-  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'ANNUAL']).optional(),
+  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'BIANNUAL', 'ANNUAL']).optional(),
 }).refine(
   (data) => {
     // Only validate if both dates are provided

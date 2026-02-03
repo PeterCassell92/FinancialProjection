@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { DatePicker } from '@/components/DatePicker';
 import DecisionPathAutocomplete from '@/components/DecisionPathAutocomplete';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 interface ProjectionEventFormProps {
   date: Date;
@@ -52,6 +53,16 @@ export default function ProjectionEventForm({
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loadingBankAccounts, setLoadingBankAccounts] = useState(true);
   const [loadingRule, setLoadingRule] = useState(false);
+
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
 
   // Fetch bank accounts and settings on mount
   useEffect(() => {
@@ -120,11 +131,19 @@ export default function ProjectionEventForm({
             frequency: rule.frequency,
           });
         } else {
-          alert(data.error || 'Failed to fetch recurring rule');
+          setErrorModal({
+            isOpen: true,
+            title: 'Failed to Load Rule',
+            description: data.error || 'Failed to fetch recurring rule. Please try again.',
+          });
         }
       } catch (error) {
         console.error('Failed to fetch recurring rule:', error);
-        alert('Failed to fetch recurring rule');
+        setErrorModal({
+          isOpen: true,
+          title: 'Connection Error',
+          description: 'Failed to fetch recurring rule. Please check your connection and try again.',
+        });
       } finally {
         setLoadingRule(false);
       }
@@ -188,14 +207,22 @@ export default function ProjectionEventForm({
       if (data.success) {
         onSuccess();
       } else {
-        const action = isEditMode ? 'update' : 'create';
-        const itemType = recurrentMode || isEditMode ? 'recurring rule' : 'event';
-        alert(data.error || `Failed to ${action} ${itemType}`);
+        const action = isEditMode ? 'Update' : 'Create';
+        const itemType = recurrentMode || isEditMode ? 'Recurring Rule' : 'Event';
+        setErrorModal({
+          isOpen: true,
+          title: `Failed to ${action} ${itemType}`,
+          description: data.error || `Unable to ${action.toLowerCase()} ${itemType.toLowerCase()}. Please try again.`,
+        });
       }
     } catch (err) {
-      const action = isEditMode ? 'update' : 'create';
-      const itemType = recurrentMode || isEditMode ? 'recurring rule' : 'event';
-      alert(`Failed to ${action} ${itemType}`);
+      const action = isEditMode ? 'Update' : 'Create';
+      const itemType = recurrentMode || isEditMode ? 'Recurring Rule' : 'Event';
+      setErrorModal({
+        isOpen: true,
+        title: `Connection Error`,
+        description: `Failed to ${action.toLowerCase()} ${itemType.toLowerCase()}. Please check your connection and try again.`,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -501,6 +528,18 @@ export default function ProjectionEventForm({
           Cancel
         </button>
       </div>
+
+      {/* Error Modal */}
+      <ConfirmationModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+        title={errorModal.title}
+        description={errorModal.description}
+        confirmText="OK"
+        cancelText="Close"
+        confirmVariant="default"
+      />
     </form>
   );
 }

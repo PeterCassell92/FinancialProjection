@@ -18,6 +18,7 @@ import {
 import DayDetailModal from '@/components/DayDetailModal';
 import ScenarioPanel from '@/components/ScenarioPanel';
 import SaveScenarioModal from '@/components/SaveScenarioModal';
+import RecurringEventEditModal from '@/components/RecurringEventEditModal';
 import { RecurringEventsPanel } from '@/components/RecurringEventsPanel';
 import { useAppSelector } from '@/lib/redux/hooks';
 import { formatCurrency } from '@/lib/utils/currency';
@@ -373,15 +374,22 @@ export default function MonthlyProjection() {
       {/* Recurring Events Panel */}
       <RecurringEventsPanel
         onEditRule={(ruleId) => {
-          // TODO: Open edit modal for recurring rule
           setEditingRuleId(ruleId);
-          console.log('Edit recurring rule:', ruleId);
         }}
         onRuleDeleted={() => {
           // Refresh events and balances after rule deletion
           fetchData();
         }}
       />
+
+      {/* Recurring Event Edit Modal */}
+      {editingRuleId && (
+        <RecurringEventEditModal
+          ruleId={editingRuleId}
+          onClose={() => setEditingRuleId(null)}
+          onSuccess={fetchData}
+        />
+      )}
 
       {/* Day Detail Modal */}
       {showDayModal && selectedDay && (

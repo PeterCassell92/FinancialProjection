@@ -5,7 +5,7 @@ import {
   deleteRecurringEventRule,
   deleteGeneratedEventsForRule,
 } from '@/lib/dal/recurring-event-rules';
-import { RecurringEventRuleCreateRequestSchema } from '@/lib/schemas';
+import { RecurringEventRuleCreateRequestSchema, RecurringEventRuleUpdateRequestSchema } from '@/lib/schemas';
 import {
   handleApiError,
   createNotFoundResponse,
@@ -74,8 +74,8 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    // Validate request body with Zod (reuse create schema for validation)
-    const validation = RecurringEventRuleCreateRequestSchema.partial().safeParse(body);
+    // Validate request body with Zod
+    const validation = RecurringEventRuleUpdateRequestSchema.safeParse(body);
     if (!validation.success) {
       return createValidationErrorResponse(
         'body',
