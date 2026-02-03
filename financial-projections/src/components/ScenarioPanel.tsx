@@ -10,7 +10,11 @@ import {
   openSaveModal,
 } from '@/lib/redux/scenarioSlice';
 
-export default function ScenarioPanel() {
+interface ScenarioPanelProps {
+  recurringPanelExpanded?: boolean;
+}
+
+export default function ScenarioPanel({ recurringPanelExpanded = false }: ScenarioPanelProps) {
   const dispatch = useAppDispatch();
 
   const {
@@ -41,8 +45,11 @@ export default function ScenarioPanel() {
 
   const activeScenario = scenarioSets.find(s => s.id === activeScenarioSetId);
 
+  // Adjust right margin based on recurring panel state
+  const rightMargin = recurringPanelExpanded ? 'mr-96' : 'mr-12';
+
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full" data-testid="scenario-panel">
+    <div className={`w-80 bg-white border-l border-gray-200 flex flex-col h-full transition-all duration-300 ${rightMargin}`} data-testid="scenario-panel">
       <div className="p-4 border-b border-gray-200">
         <h2 className="text-lg font-semibold text-gray-900" data-testid="scenario-panel-title">
           Scenario Planning

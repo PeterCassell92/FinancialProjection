@@ -19,9 +19,12 @@ import DayDetailModal from '@/components/DayDetailModal';
 import ScenarioPanel from '@/components/ScenarioPanel';
 import SaveScenarioModal from '@/components/SaveScenarioModal';
 import RecurringEventEditModal from '@/components/RecurringEventEditModal';
-import { RecurringEventsPanel } from '@/components/RecurringEventsPanel';
+import SidebarPanel from '@/components/SidebarPanel';
+import RecurringEventsManagerContent from '@/components/RecurringEventsManagerContent';
+import ThisMonthsEventsManagerContent from '@/components/ThisMonthsEventsManagerContent';
 import { useAppSelector } from '@/lib/redux/hooks';
 import { formatCurrency } from '@/lib/utils/currency';
+import { Repeat, Calendar } from 'lucide-react';
 
 interface ProjectionEvent {
   id: string;
@@ -60,6 +63,7 @@ export default function MonthlyProjection() {
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [showDayModal, setShowDayModal] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [isPanelExpanded, setIsPanelExpanded] = useState(false);
 
   // Parse monthId (format: YYYY-MM)
   const currentMonth = parseISO(`${monthId}-01`);
@@ -369,21 +373,41 @@ export default function MonthlyProjection() {
       </div>
 
       {/* Scenario Panel */}
-      <ScenarioPanel />
+      <ScenarioPanel recurringPanelExpanded={isPanelExpanded} />
 
-      {/* Recurring Events Panel */}
-      <RecurringEventsPanel
-        onEditRule={(ruleId) => {
-          setEditingRuleId(ruleId);
-        }}
-        onRuleDeleted={() => {
-          // Refresh events and balances after rule deletion
-          fetchData();
-        }}
-        onCreateRule={() => {
-          // Open create modal with null ruleId
-          setEditingRuleId('');
-        }}
+      {/* Sidebar Panel with Views */}
+      <SidebarPanel
+        views={[
+          {
+            id: 'recurring-events',
+            label: 'Recurring',
+            icon: <Repeat className="h-4 w-4" />,
+            content: (
+              <RecurringEventsManagerContent
+                onEditRule={(ruleId) => {
+                  setEditingRuleId(ruleId);
+                }}
+                onRuleDeleted={() => {
+                  // Refresh events and balances after rule deletion
+                  fetchData();
+                }}
+                onCreateRule={() => {
+                  // Open create modal with null ruleId
+                  setEditingRuleId('');
+                }}
+              />
+            ),
+          },
+          {
+            id: 'month-events',
+            label: 'This Month',
+            icon: <Calendar className="h-4 w-4" />,
+            content: <ThisMonthsEventsManagerContent />,
+          },
+        ]}
+        defaultViewId="recurring-events"
+        isExpanded={isPanelExpanded}
+        onToggleExpand={setIsPanelExpanded}
       />
 
       {/* Recurring Event Edit Modal */}

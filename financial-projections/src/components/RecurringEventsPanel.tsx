@@ -26,10 +26,28 @@ interface RecurringEventsPanelProps {
   onEditRule: (ruleId: string) => void;
   onRuleDeleted?: () => void;
   onCreateRule?: () => void;
+  isExpanded?: boolean;
+  onToggleExpand?: (expanded: boolean) => void;
 }
 
-export function RecurringEventsPanel({ onEditRule, onRuleDeleted, onCreateRule }: RecurringEventsPanelProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function RecurringEventsPanel({
+  onEditRule,
+  onRuleDeleted,
+  onCreateRule,
+  isExpanded: controlledIsExpanded,
+  onToggleExpand,
+}: RecurringEventsPanelProps) {
+  const [internalIsExpanded, setInternalIsExpanded] = useState(false);
+
+  // Use controlled state if provided, otherwise use internal state
+  const isExpanded = controlledIsExpanded !== undefined ? controlledIsExpanded : internalIsExpanded;
+  const setIsExpanded = (value: boolean) => {
+    if (onToggleExpand) {
+      onToggleExpand(value);
+    } else {
+      setInternalIsExpanded(value);
+    }
+  };
   const [rules, setRules] = useState<RecurringEventRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
