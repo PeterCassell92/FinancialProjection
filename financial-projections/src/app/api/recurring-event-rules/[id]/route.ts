@@ -43,6 +43,8 @@ export async function GET(
       startDate: rule.startDate.toISOString(),
       endDate: rule.endDate.toISOString(),
       frequency: rule.frequency,
+      isBaseRule: rule.isBaseRule,
+      baseRuleId: rule.baseRuleId,
       createdAt: rule.createdAt.toISOString(),
       updatedAt: rule.updatedAt.toISOString(),
       projectionEvents: rule.projectionEvents.map((event) => ({
@@ -127,6 +129,8 @@ export async function PATCH(
       startDate: rule.startDate.toISOString(),
       endDate: rule.endDate.toISOString(),
       frequency: rule.frequency,
+      isBaseRule: rule.isBaseRule,
+      baseRuleId: rule.baseRuleId,
       createdAt: rule.createdAt.toISOString(),
       updatedAt: rule.updatedAt.toISOString(),
     };

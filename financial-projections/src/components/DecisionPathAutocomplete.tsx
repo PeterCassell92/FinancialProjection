@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useAppSelector } from '@/lib/redux/hooks';
+import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
+import { createDecisionPath } from '@/lib/redux/scenarioSlice';
 
 interface DecisionPathAutocompleteProps {
-  value: string;
-  onChange: (value: string) => void;
+  value: string; // This is the decision path ID
+  onChange: (value: string) => void; // Callback receives decision path ID
   placeholder?: string;
   className?: string;
 }
@@ -16,16 +17,25 @@ export default function DecisionPathAutocomplete({
   placeholder = 'Select or create a decision path',
   className = '',
 }: DecisionPathAutocompleteProps) {
+  const dispatch = useAppDispatch();
   const { allDecisionPaths } = useAppSelector((state) => state.scenario);
-  const [inputValue, setInputValue] = useState(value);
+  const [inputValue, setInputValue] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [filteredPaths, setFilteredPaths] = useState(allDecisionPaths);
+  const [creating, setCreating] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Sync input value with prop value
+  // Sync input value with the selected decision path name (derived from ID)
   useEffect(() => {
-    setInputValue(value);
-  }, [value]);
+    if (value) {
+      const selectedPath = allDecisionPaths.find(p => p.id === value);
+      if (selectedPath) {
+        setInputValue(selectedPath.name);
+      }
+    } else {
+      setInputValue('');
+    }
+  }, [value, allDecisionPaths]);
 
   // Filter decision paths based on input
   useEffect(() => {
@@ -54,14 +64,65 @@ export default function DecisionPathAutocomplete({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setInputValue(newValue);
-    onChange(newValue);
+    // Clear selection when user types
+    if (newValue !== inputValue) {
+      onChange('');
+    }
     setShowDropdown(true);
   };
 
-  const handleSelectPath = (pathName: string) => {
+  const handleSelectPath = (pathId: string, pathName: string) => {
     setInputValue(pathName);
-    onChange(pathName);
+    onChange(pathId);
     setShowDropdown(false);
+  };
+
+  const handleCreateDecisionPath = async () => {
+    if (!inputValue.trim() || creating) return;
+
+    // Check if it already exists
+    const existingPath = allDecisionPaths.find(
+      p => p.name.toLowerCase() === inputValue.trim().toLowerCase()
+    );
+    if (existingPath) {
+      handleSelectPath(existingPath.id, existingPath.name);
+      return;
+    }
+
+    setCreating(true);
+    try {
+      // Use the Redux thunk to create the decision path
+      const result = await dispatch(createDecisionPath({
+        name: inputValue.trim(),
+        description: undefined,
+      })).unwrap();
+
+      // Select the newly created decision path
+      handleSelectPath(result.id, result.name);
+    } catch (error) {
+      console.error('Error creating decision path:', error);
+      alert('Failed to create decision path. Please try again.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent form submission
+      e.stopPropagation(); // Stop event propagation
+
+      // If there's a matching path, select it
+      const exactMatch = allDecisionPaths.find(
+        p => p.name.toLowerCase() === inputValue.trim().toLowerCase()
+      );
+      if (exactMatch) {
+        handleSelectPath(exactMatch.id, exactMatch.name);
+      } else if (inputValue.trim()) {
+        // Create new decision path
+        handleCreateDecisionPath();
+      }
+    }
   };
 
   const handleInputFocus = () => {
@@ -79,10 +140,12 @@ export default function DecisionPathAutocomplete({
         value={inputValue}
         onChange={handleInputChange}
         onFocus={handleInputFocus}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         data-testid="decision-path-autocomplete-input"
         autoComplete="off"
+        disabled={creating}
       />
 
       {showDropdown && (filteredPaths.length > 0 || showCreateOption) && (
@@ -95,7 +158,7 @@ export default function DecisionPathAutocomplete({
             <button
               key={path.id}
               type="button"
-              onClick={() => handleSelectPath(path.name)}
+              onClick={() => handleSelectPath(path.id, path.name)}
               className="w-full text-left px-4 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
               data-testid={`decision-path-option__${path.id}`}
             >
@@ -110,15 +173,16 @@ export default function DecisionPathAutocomplete({
           {showCreateOption && (
             <button
               type="button"
-              onClick={() => handleSelectPath(inputValue)}
+              onClick={handleCreateDecisionPath}
               className="w-full text-left px-4 py-2 border-t border-gray-200 bg-blue-50 hover:bg-blue-100 focus:bg-blue-100 focus:outline-none"
               data-testid="decision-path-create-option"
+              disabled={creating}
             >
               <div className="text-sm font-medium text-blue-700">
-                Create new: "{inputValue}"
+                {creating ? 'Creating...' : `Create new: "${inputValue}"`}
               </div>
               <div className="text-xs text-blue-600 mt-0.5">
-                A new decision path will be created
+                {creating ? 'Please wait...' : 'Press Enter or click to create'}
               </div>
             </button>
           )}

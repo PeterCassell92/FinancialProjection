@@ -25,13 +25,15 @@ interface RecurringEventRule {
 interface RecurringEventsPanelProps {
   onEditRule: (ruleId: string) => void;
   onRuleDeleted?: () => void;
+  onCreateRule?: () => void;
 }
 
-export function RecurringEventsPanel({ onEditRule, onRuleDeleted }: RecurringEventsPanelProps) {
+export function RecurringEventsPanel({ onEditRule, onRuleDeleted, onCreateRule }: RecurringEventsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [rules, setRules] = useState<RecurringEventRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExpired, setShowExpired] = useState(true);
 
   const currency = useAppSelector((state) => state.settings.currency);
   const dateFormat = useAppSelector((state) => state.settings.dateFormat);
@@ -121,6 +123,18 @@ export function RecurringEventsPanel({ onEditRule, onRuleDeleted }: RecurringEve
     onEditRule(ruleId);
   };
 
+  const isRuleExpired = (rule: RecurringEventRule): boolean => {
+    const endDate = new Date(rule.endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day for comparison
+    return endDate < today;
+  };
+
+  // Filter rules based on the showExpired toggle
+  const filteredRules = showExpired
+    ? rules
+    : rules.filter(rule => !isRuleExpired(rule));
+
   const getFrequencyLabel = (frequency: string): string => {
     const labels: Record<string, string> = {
       DAILY: 'Daily',
@@ -170,13 +184,43 @@ export function RecurringEventsPanel({ onEditRule, onRuleDeleted }: RecurringEve
           <div className="h-full flex flex-col">
             {/* Header */}
             <div className="p-4 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <Repeat className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Recurring Events</h2>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <Repeat className="h-5 w-5 text-blue-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">Recurring Events</h2>
+                </div>
+                {onCreateRule && (
+                  <button
+                    onClick={onCreateRule}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    data-testid="create-recurring-rule-button"
+                  >
+                    Create
+                  </button>
+                )}
               </div>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-gray-600">
                 Double-click to edit, click bin to delete
               </p>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="px-4 py-2 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">Filters</span>
+                <label className="flex items-center gap-2 cursor-pointer" data-testid="show-expired-toggle">
+                  <span className="text-sm text-gray-600">Show Expired</span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={showExpired}
+                      onChange={(e) => setShowExpired(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                  </div>
+                </label>
+              </div>
             </div>
 
             {/* Rules List */}
@@ -199,19 +243,29 @@ export function RecurringEventsPanel({ onEditRule, onRuleDeleted }: RecurringEve
                 </div>
               )}
 
-              {!loading && !error && rules.length === 0 && (
+              {!loading && !error && filteredRules.length === 0 && rules.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-32 text-center">
                   <Calendar className="h-8 w-8 text-gray-400 mb-2" />
                   <p className="text-sm text-gray-500">No recurring events yet</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Create one from the calendar
+                    {onCreateRule ? 'Click Create to add one' : 'Create one from the calendar'}
                   </p>
                 </div>
               )}
 
-              {!loading && !error && rules.length > 0 && (
+              {!loading && !error && filteredRules.length === 0 && rules.length > 0 && (
+                <div className="flex flex-col items-center justify-center h-32 text-center">
+                  <Calendar className="h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-500">No active recurring events</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    All rules are expired. Toggle "Show Expired" to see them.
+                  </p>
+                </div>
+              )}
+
+              {!loading && !error && filteredRules.length > 0 && (
                 <div className="space-y-2">
-                  {rules.map((rule) => (
+                  {filteredRules.map((rule) => (
                     <div
                       key={rule.id}
                       onDoubleClick={() => handleDoubleClick(rule.id)}
@@ -229,9 +283,17 @@ export function RecurringEventsPanel({ onEditRule, onRuleDeleted }: RecurringEve
                             >
                               {rule.certainty.toLowerCase()}
                             </span>
+                            {isRuleExpired(rule) && (
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-600"
+                                data-testid={`expired-badge-${rule.id}`}
+                              >
+                                expired
+                              </span>
+                            )}
                           </div>
 
-                          <p className="text-sm font-semibold mb-1 text-gray-900">
+                          <p className={`text-sm font-semibold mb-1 ${rule.type === 'EXPENSE' ? 'text-red-700' : 'text-green-600'}`}>
                             {rule.type === 'EXPENSE' ? '-' : '+'}
                             {formatCurrency(rule.value, currency)}
                           </p>

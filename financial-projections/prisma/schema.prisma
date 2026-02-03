@@ -156,12 +156,19 @@ model RecurringProjectionEventRule {
   // Generated events
   projectionEvents ProjectionEvent[]
 
+  // Revision tracking for value changes over time
+  isBaseRule Boolean @default(true) // true for original rules, false for revisions
+  baseRuleId String? // Links revision to its base rule
+  baseRule   RecurringProjectionEventRule? @relation("RuleRevisions", fields: [baseRuleId], references: [id], onDelete: Cascade)
+  revisions  RecurringProjectionEventRule[] @relation("RuleRevisions")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([decisionPathId])
   @@index([bankAccountId])
   @@index([startDate])
+  @@index([baseRuleId])
 }
 
 model ProjectionEvent {

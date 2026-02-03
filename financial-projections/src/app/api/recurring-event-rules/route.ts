@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
       startDate: rule.startDate.toISOString(),
       endDate: rule.endDate.toISOString(),
       frequency: rule.frequency,
+      isBaseRule: rule.isBaseRule,
+      baseRuleId: rule.baseRuleId,
       createdAt: rule.createdAt.toISOString(),
       updatedAt: rule.updatedAt.toISOString(),
     }));
@@ -111,6 +113,8 @@ export async function POST(request: NextRequest) {
       startDate: rule.startDate.toISOString(),
       endDate: rule.endDate.toISOString(),
       frequency: rule.frequency,
+      isBaseRule: rule.isBaseRule,
+      baseRuleId: rule.baseRuleId,
       createdAt: rule.createdAt.toISOString(),
       updatedAt: rule.updatedAt.toISOString(),
     };

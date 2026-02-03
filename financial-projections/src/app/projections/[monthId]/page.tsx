@@ -380,12 +380,16 @@ export default function MonthlyProjection() {
           // Refresh events and balances after rule deletion
           fetchData();
         }}
+        onCreateRule={() => {
+          // Open create modal with null ruleId
+          setEditingRuleId('');
+        }}
       />
 
       {/* Recurring Event Edit Modal */}
-      {editingRuleId && (
+      {editingRuleId !== null && (
         <RecurringEventEditModal
-          ruleId={editingRuleId}
+          ruleId={editingRuleId || null}
           onClose={() => setEditingRuleId(null)}
           onSuccess={fetchData}
         />

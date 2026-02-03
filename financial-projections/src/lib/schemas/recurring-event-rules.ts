@@ -17,6 +17,8 @@ const RecurringEventRuleDataSchema = z.object({
   startDate: z.string(), // ISO date string
   endDate: z.string(),   // ISO date string
   frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'BIANNUAL', 'ANNUAL']),
+  isBaseRule: z.boolean(),
+  baseRuleId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -136,6 +138,38 @@ export const RecurringEventRuleDeleteResponseSchema = z.object({
   message: z.string().optional(),
 });
 
+/**
+ * Recurring Event Rule Revision Create Request Schema
+ * Used to create a new revision (value change) of an existing rule
+ */
+export const RecurringEventRuleRevisionCreateRequestSchema = z.object({
+  startDate: z.string(), // ISO date string - when the new value takes effect
+  value: z.number().positive('Value must be greater than 0'), // The new value
+  description: z.string().optional(), // Optional description override
+  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'BIANNUAL', 'ANNUAL']).optional(), // Optional frequency change
+  decisionPathId: z.string().optional(), // Optional decision path change
+}).refine(
+  (data) => {
+    // Start date validation against base rule will happen in the API handler
+    return true;
+  }
+);
+
+/**
+ * Recurring Event Rule Revision Create Response Schema
+ */
+export const RecurringEventRuleRevisionCreateResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.object({
+    baseRule: RecurringEventRuleDataSchema, // The updated base rule (with adjusted end date)
+    revision: RecurringEventRuleDataSchema, // The new revision rule
+    baseRuleEventsDeleted: z.number(), // Number of events deleted from base rule
+    revisionEventsCreated: z.number(), // Number of events created for revision
+  }).optional(),
+  error: z.string().optional(),
+  message: z.string().optional(),
+});
+
 // Export types
 export type RecurringEventRuleData = z.infer<typeof RecurringEventRuleDataSchema>;
 export type RecurringEventRuleGetResponse = z.infer<typeof RecurringEventRuleGetResponseSchema>;
@@ -145,3 +179,5 @@ export type RecurringEventRuleCreateResponse = z.infer<typeof RecurringEventRule
 export type RecurringEventRuleUpdateRequest = z.infer<typeof RecurringEventRuleUpdateRequestSchema>;
 export type RecurringEventRuleUpdateResponse = z.infer<typeof RecurringEventRuleUpdateResponseSchema>;
 export type RecurringEventRuleDeleteResponse = z.infer<typeof RecurringEventRuleDeleteResponseSchema>;
+export type RecurringEventRuleRevisionCreateRequest = z.infer<typeof RecurringEventRuleRevisionCreateRequestSchema>;
+export type RecurringEventRuleRevisionCreateResponse = z.infer<typeof RecurringEventRuleRevisionCreateResponseSchema>;

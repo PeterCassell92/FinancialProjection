@@ -13,7 +13,7 @@ export default function RecurringEventEditModal({
   onClose,
   onSuccess,
 }: RecurringEventEditModalProps) {
-  if (!ruleId) return null;
+  const isCreating = !ruleId;
 
   return (
     <div
@@ -30,7 +30,7 @@ export default function RecurringEventEditModal({
         <div className="sticky top-0 bg-white border-b px-6 py-4 z-10">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900" data-testid="edit-modal-title">
-              Edit Recurring Event Rule
+              {isCreating ? 'Create Recurring Event Rule' : 'Edit Recurring Event Rule'}
             </h2>
             <button
               onClick={onClose}
