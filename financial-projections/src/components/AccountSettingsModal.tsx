@@ -10,7 +10,7 @@ import {
 } from '@/lib/redux/bankRecordsSlice';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import ConfirmationModal from '@/components/ConfirmationModal';
+import ConfirmationModal from '@/components/modals/ConfirmationModal';
 import { X } from 'lucide-react';
 
 interface AccountSettingsModalProps {

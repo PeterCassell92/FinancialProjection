@@ -123,3 +123,194 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* React DatePicker Custom Styles */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
+.react-datepicker {
+  font-family: inherit;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-lg);
+  background-color: hsl(var(--popover));
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.react-datepicker__header {
+  background-color: hsl(var(--muted));
+  border-bottom: 1px solid hsl(var(--border));
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+  padding-top: 0.5rem;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+}
+
+.react-datepicker__day-name {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+}
+
+.react-datepicker__day {
+  color: hsl(var(--foreground));
+  border-radius: var(--radius-md);
+  margin: 0.125rem;
+}
+
+.react-datepicker__day:hover {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 500;
+}
+
+.react-datepicker__day--selected:hover,
+.react-datepicker__day--keyboard-selected:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
+.react-datepicker__day--today {
+  font-weight: 600;
+  position: relative;
+}
+
+.react-datepicker__day--today::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: hsl(var(--primary));
+}
+
+.react-datepicker__day--disabled {
+  color: hsl(var(--muted-foreground));
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.react-datepicker__day--disabled:hover {
+  background-color: transparent;
+}
+
+.react-datepicker__day--outside-month {
+  color: hsl(var(--muted-foreground));
+  opacity: 0.5;
+}
+
+.react-datepicker__month-dropdown,
+.react-datepicker__year-dropdown {
+  background-color: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.react-datepicker__month-option,
+.react-datepicker__year-option {
+  color: hsl(var(--foreground));
+  padding: 0.5rem 0.75rem;
+}
+
+.react-datepicker__month-option:hover,
+.react-datepicker__year-option:hover {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.react-datepicker__month-option--selected,
+.react-datepicker__year-option--selected {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 500;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: hsl(var(--foreground));
+}
+
+.react-datepicker__navigation:hover *::before {
+  border-color: hsl(var(--foreground));
+}
+
+.react-datepicker__input-container input {
+  width: 100%;
+  height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+
+.react-datepicker__input-container input:focus {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+}
+
+.react-datepicker__input-container input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.react-datepicker__close-icon::after {
+  background-color: hsl(var(--muted-foreground));
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.react-datepicker__close-icon:hover::after {
+  background-color: hsl(var(--destructive));
+}
+
+/* Custom Scrollbar Styles */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 10px;
+  transition: background-color 150ms;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+}

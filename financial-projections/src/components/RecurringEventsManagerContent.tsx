@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Calendar, Repeat } from 'lucide-react';
-import ConfirmationModal from './ConfirmationModal';
+import ConfirmationModal from '@/components/modals/ConfirmationModal';
 import SidebarPanelCard from './SidebarPanelCard';
 import { formatDate } from '@/lib/utils/date-format';
 import { useAppSelector } from '@/lib/redux/hooks';

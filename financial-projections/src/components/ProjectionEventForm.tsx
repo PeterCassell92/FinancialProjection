@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { DatePicker } from '@/components/DatePicker';
 import DecisionPathAutocomplete from '@/components/DecisionPathAutocomplete';
-import ConfirmationModal from '@/components/ConfirmationModal';
+import ConfirmationModal from '@/components/modals/ConfirmationModal';
 
 interface ProjectionEventFormProps {
   date: Date;

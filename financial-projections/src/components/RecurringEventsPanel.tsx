@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Trash2, Calendar, Repeat } from 'lucide-react';
-import ConfirmationModal from './ConfirmationModal';
+import ConfirmationModal from '@/components/modals/ConfirmationModal';
 import { formatCurrency } from '@/lib/utils/currency';
 import { formatDate } from '@/lib/utils/date-format';
 import { useAppSelector } from '@/lib/redux/hooks';

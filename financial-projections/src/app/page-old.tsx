@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format, addMonths, startOfMonth } from 'date-fns';
-import UpdateInitialBalanceModal from '@/components/UpdateInitialBalanceModal';
+import UpdateInitialBalanceModal from '@/components/modals/UpdateInitialBalanceModal';
 import { SettingsResponseSchema } from '@/lib/schemas/api-responses';
 
 interface Settings {

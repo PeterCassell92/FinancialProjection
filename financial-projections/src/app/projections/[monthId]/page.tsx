@@ -17,8 +17,8 @@ import {
 } from 'date-fns';
 import DayDetailModal from '@/components/DayDetailModal';
 import ScenarioPanel from '@/components/ScenarioPanel';
-import SaveScenarioModal from '@/components/SaveScenarioModal';
-import RecurringEventEditModal from '@/components/RecurringEventEditModal';
+import SaveScenarioModal from '@/components/modals/SaveScenarioModal';
+import RecurringEventEditModal from '@/components/modals/RecurringEventEditModal';
 import SidebarPanel from '@/components/SidebarPanel';
 import RecurringEventsManagerContent from '@/components/RecurringEventsManagerContent';
 import ThisMonthsEventsManagerContent from '@/components/ThisMonthsEventsManagerContent';

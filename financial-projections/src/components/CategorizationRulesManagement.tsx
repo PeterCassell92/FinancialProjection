@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Edit2, Check, X, Tag, ChevronUp } from 'lucide-react';
-import ConfirmationModal from '@/components/ConfirmationModal';
+import ConfirmationModal from '@/components/modals/ConfirmationModal';
 import CollapsibleHeader from '@/components/CollapsibleHeader';
 
 interface SpendingType {
