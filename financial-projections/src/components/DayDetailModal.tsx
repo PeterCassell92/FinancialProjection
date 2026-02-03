@@ -16,6 +16,7 @@ interface ProjectionEvent {
   payTo?: string;
   paidBy?: string;
   date: string;
+  recurringRuleId?: string;
 }
 
 interface DailyBalance {
@@ -56,6 +57,7 @@ export default function DayDetailModal({
   const defaultBankAccountId = useAppSelector((state) => state.settings.defaultBankAccountId);
   const [showEventForm, setShowEventForm] = useState(false);
   const [recurringMode, setRecurringMode] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [settingActualBalance, setSettingActualBalance] = useState(false);
   const [actualBalanceInput, setActualBalanceInput] = useState(
     balance?.actualBalance?.toString() || ''
@@ -313,16 +315,38 @@ export default function DayDetailModal({
                           {event.type === 'INCOMING' && event.paidBy && (
                             <span className="text-gray-600">From: {event.paidBy}</span>
                           )}
+
+                          {event.recurringRuleId && (
+                            <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
+                              Recurring
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleDeleteEvent(event.id)}
-                        className="text-red-600 hover:text-red-800 ml-4"
-                        data-testid={`delete-event__${index}`}
-                      >
-                        Delete
-                      </button>
+                      <div className="flex items-center gap-2 ml-4">
+                        {event.recurringRuleId && (
+                          <button
+                            onClick={() => {
+                              setEditingRuleId(event.recurringRuleId!);
+                              setRecurringMode(true);
+                              setShowEventForm(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            data-testid={`edit-rule__${index}`}
+                            title="Edit recurring rule"
+                          >
+                            Edit Rule
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteEvent(event.id)}
+                          className="text-red-600 hover:text-red-800"
+                          data-testid={`delete-event__${index}`}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -334,20 +358,27 @@ export default function DayDetailModal({
           {showEventForm && (
             <div className="mt-6 border-t pt-6" data-testid="event-form-container">
               <h3 className="text-lg font-semibold mb-4">
-                {recurringMode ? 'Add New Recurring Event' : 'Add New Event'}
+                {editingRuleId
+                  ? 'Edit Recurring Rule'
+                  : recurringMode
+                  ? 'Add New Recurring Event'
+                  : 'Add New Event'}
               </h3>
               <ProjectionEventForm
                 date={date}
                 onCancel={() => {
                   setShowEventForm(false);
                   setRecurringMode(false);
+                  setEditingRuleId(null);
                 }}
                 onSuccess={() => {
                   setShowEventForm(false);
                   setRecurringMode(false);
+                  setEditingRuleId(null);
                   onRefresh();
                 }}
                 initialRecurringMode={recurringMode}
+                editingRuleId={editingRuleId}
               />
             </div>
           )}

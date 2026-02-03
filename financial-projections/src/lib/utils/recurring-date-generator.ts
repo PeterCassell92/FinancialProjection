@@ -195,6 +195,16 @@ export function generateRecurringDates(
         nextDate = getNextMonthlyDate(currentDate);
         break;
 
+      case 'QUARTERLY':
+        // Add 3 months
+        nextDate = getNextMonthlyDate(getNextMonthlyDate(getNextMonthlyDate(currentDate)));
+        break;
+
+      case 'BIANNUAL':
+        // Add 6 months
+        nextDate = addMonths(currentDate, 6);
+        break;
+
       case 'ANNUAL':
         nextDate = getNextAnnualDate(currentDate);
         break;

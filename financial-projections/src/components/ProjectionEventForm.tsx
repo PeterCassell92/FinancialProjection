@@ -10,6 +10,7 @@ interface ProjectionEventFormProps {
   onCancel: () => void;
   onSuccess: () => void;
   initialRecurringMode?: boolean;
+  editingRuleId?: string | null;
 }
 
 interface BankAccount {
@@ -25,8 +26,10 @@ export default function ProjectionEventForm({
   onCancel,
   onSuccess,
   initialRecurringMode = false,
+  editingRuleId = null,
 }: ProjectionEventFormProps) {
-  const [recurrentMode, setRecurrentMode] = useState(initialRecurringMode);
+  const isEditMode = !!editingRuleId;
+  const [recurrentMode, setRecurrentMode] = useState(initialRecurringMode || isEditMode);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -42,12 +45,13 @@ export default function ProjectionEventForm({
   const [recurringData, setRecurringData] = useState({
     startDate: date,
     endDate: undefined as Date | undefined,
-    frequency: 'MONTHLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'ANNUAL',
+    frequency: 'MONTHLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'BIANNUAL' | 'ANNUAL',
   });
 
   const [submitting, setSubmitting] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loadingBankAccounts, setLoadingBankAccounts] = useState(true);
+  const [loadingRule, setLoadingRule] = useState(false);
 
   // Fetch bank accounts and settings on mount
   useEffect(() => {
@@ -87,14 +91,67 @@ export default function ProjectionEventForm({
     fetchData();
   }, []);
 
+  // Fetch recurring rule data when editing
+  useEffect(() => {
+    if (!editingRuleId) return;
+
+    const fetchRule = async () => {
+      setLoadingRule(true);
+      try {
+        const response = await fetch(`/api/recurring-event-rules/${editingRuleId}`);
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          const rule = data.data;
+          setFormData({
+            name: rule.name,
+            description: rule.description || '',
+            value: rule.value.toString(),
+            type: rule.type,
+            certainty: rule.certainty,
+            payTo: rule.payTo || '',
+            paidBy: rule.paidBy || '',
+            decisionPath: rule.decisionPathId || '',
+            bankAccountId: rule.bankAccountId,
+          });
+          setRecurringData({
+            startDate: new Date(rule.startDate),
+            endDate: new Date(rule.endDate),
+            frequency: rule.frequency,
+          });
+        } else {
+          alert(data.error || 'Failed to fetch recurring rule');
+        }
+      } catch (error) {
+        console.error('Failed to fetch recurring rule:', error);
+        alert('Failed to fetch recurring rule');
+      } finally {
+        setLoadingRule(false);
+      }
+    };
+
+    fetchRule();
+  }, [editingRuleId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
-      const endpoint = recurrentMode
-        ? '/api/recurring-event-rules'
-        : '/api/projection-events';
+      // Determine endpoint and method based on mode
+      let endpoint: string;
+      let method: string;
+
+      if (isEditMode) {
+        endpoint = `/api/recurring-event-rules/${editingRuleId}`;
+        method = 'PATCH';
+      } else if (recurrentMode) {
+        endpoint = '/api/recurring-event-rules';
+        method = 'POST';
+      } else {
+        endpoint = '/api/projection-events';
+        method = 'POST';
+      }
 
       const baseData = {
         name: formData.name,
@@ -104,11 +161,11 @@ export default function ProjectionEventForm({
         certainty: formData.certainty,
         payTo: formData.type === 'EXPENSE' ? formData.payTo || undefined : undefined,
         paidBy: formData.type === 'INCOMING' ? formData.paidBy || undefined : undefined,
-        decisionPath: formData.decisionPath || undefined,
+        decisionPathId: formData.decisionPath || undefined,
         bankAccountId: formData.bankAccountId,
       };
 
-      const body = recurrentMode
+      const body = recurrentMode || isEditMode
         ? {
             ...baseData,
             startDate: format(recurringData.startDate, 'yyyy-MM-dd'),
@@ -121,7 +178,7 @@ export default function ProjectionEventForm({
           };
 
       const response = await fetch(endpoint, {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
@@ -131,14 +188,26 @@ export default function ProjectionEventForm({
       if (data.success) {
         onSuccess();
       } else {
-        alert(data.error || `Failed to create ${recurrentMode ? 'recurring rule' : 'event'}`);
+        const action = isEditMode ? 'update' : 'create';
+        const itemType = recurrentMode || isEditMode ? 'recurring rule' : 'event';
+        alert(data.error || `Failed to ${action} ${itemType}`);
       }
     } catch (err) {
-      alert(`Failed to create ${recurrentMode ? 'recurring rule' : 'event'}`);
+      const action = isEditMode ? 'update' : 'create';
+      const itemType = recurrentMode || isEditMode ? 'recurring rule' : 'event';
+      alert(`Failed to ${action} ${itemType}`);
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (loadingRule) {
+    return (
+      <div className="flex items-center justify-center py-8" data-testid="loading-rule">
+        <div className="text-gray-600">Loading recurring rule...</div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" data-testid="projection-event-form">
@@ -149,15 +218,21 @@ export default function ProjectionEventForm({
           type="checkbox"
           checked={recurrentMode}
           onChange={(e) => setRecurrentMode(e.target.checked)}
-          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          disabled={isEditMode}
+          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           data-testid="recurring-mode-checkbox"
         />
         <label htmlFor="recurring-mode" className="text-sm font-medium text-gray-700">
           Recurring Event
         </label>
-        {recurrentMode && (
+        {recurrentMode && !isEditMode && (
           <span className="text-xs text-gray-500 ml-auto">
             This will create multiple events based on the schedule
+          </span>
+        )}
+        {isEditMode && (
+          <span className="text-xs text-blue-600 ml-auto">
+            Editing recurring rule - changes will regenerate all future events
           </span>
         )}
       </div>
@@ -382,6 +457,8 @@ export default function ProjectionEventForm({
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
               <option value="MONTHLY">Monthly</option>
+              <option value="QUARTERLY">Quarterly (every 3 months)</option>
+              <option value="BIANNUAL">Biannual (every 6 months)</option>
               <option value="ANNUAL">Annual</option>
             </select>
           </div>
@@ -404,7 +481,15 @@ export default function ProjectionEventForm({
           className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
           data-testid="submit-event-button"
         >
-          {submitting ? 'Creating...' : recurrentMode ? 'Create Recurring Rule' : 'Create Event'}
+          {submitting
+            ? isEditMode
+              ? 'Updating...'
+              : 'Creating...'
+            : isEditMode
+            ? 'Update Recurring Rule'
+            : recurrentMode
+            ? 'Create Recurring Rule'
+            : 'Create Event'}
         </button>
         <button
           type="button"
