@@ -22,7 +22,8 @@ import RecurringEventEditModal from '@/components/RecurringEventEditModal';
 import SidebarPanel from '@/components/SidebarPanel';
 import RecurringEventsManagerContent from '@/components/RecurringEventsManagerContent';
 import ThisMonthsEventsManagerContent from '@/components/ThisMonthsEventsManagerContent';
-import { useAppSelector } from '@/lib/redux/hooks';
+import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
+import { fetchProjectionEventsForMonth } from '@/lib/redux/projectionEventsSlice';
 import { formatCurrency } from '@/lib/utils/currency';
 import { Repeat, Calendar } from 'lucide-react';
 
@@ -52,13 +53,17 @@ interface DayData {
 export default function MonthlyProjection() {
   const params = useParams();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const monthId = params.monthId as string;
   const currency = useAppSelector((state) => state.settings.currency);
   const defaultBankAccountId = useAppSelector((state) => state.settings.defaultBankAccountId);
   const currentDecisionPathStates = useAppSelector((state) => state.scenario.currentDecisionPathStates);
 
+  // Get events from Redux store
+  const eventsFromStore = useAppSelector((state) => state.projectionEvents.eventsByMonth[monthId] || []);
+  const eventsLoading = useAppSelector((state) => state.projectionEvents.loading);
+
   const [loading, setLoading] = useState(true);
-  const [events, setEvents] = useState<ProjectionEvent[]>([]);
   const [balances, setBalances] = useState<DailyBalance[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [showDayModal, setShowDayModal] = useState(false);
@@ -122,16 +127,11 @@ export default function MonthlyProjection() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch events for this month
-      const eventsResponse = await fetch(
-        `/api/projection-events?startDate=${format(monthStart, 'yyyy-MM-dd')}&endDate=${format(monthEnd, 'yyyy-MM-dd')}`
-      );
-      const eventsData = await eventsResponse.json();
-
-      // Set events data
-      if (eventsData.success) {
-        setEvents(eventsData.data || []);
-      }
+      // Fetch events for this month via Redux
+      await dispatch(fetchProjectionEventsForMonth({
+        startDate: format(monthStart, 'yyyy-MM-dd'),
+        endDate: format(monthEnd, 'yyyy-MM-dd'),
+      }));
 
       // Fetch balances for this month (only if we have a default bank account)
       if (defaultBankAccountId) {
@@ -171,7 +171,7 @@ export default function MonthlyProjection() {
 
     // Add actual month days
     monthDays.forEach((date) => {
-      const dayEvents = events.filter((e) => isSameDay(parseISO(e.date), date));
+      const dayEvents = eventsFromStore.filter((e: ProjectionEvent) => isSameDay(parseISO(e.date), date));
       const dayBalance = balances.find((b) => isSameDay(parseISO(b.date), date)) || null;
 
       days.push({
@@ -354,18 +354,18 @@ export default function MonthlyProjection() {
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-lg shadow p-4" data-testid="summary-events">
             <div className="text-sm text-gray-600">Total Events</div>
-            <div className="text-2xl font-bold text-gray-900">{events.length}</div>
+            <div className="text-2xl font-bold text-gray-900">{eventsFromStore.length}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4" data-testid="summary-expenses">
             <div className="text-sm text-gray-600">Total Expenses</div>
             <div className="text-2xl font-bold text-red-700">
-              {formatCurrency(events.filter((e) => e.type === 'EXPENSE').reduce((sum, e) => sum + e.value, 0), currency)}
+              {formatCurrency(eventsFromStore.filter((e: ProjectionEvent) => e.type === 'EXPENSE').reduce((sum: number, e: ProjectionEvent) => sum + e.value, 0), currency)}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4" data-testid="summary-income">
             <div className="text-sm text-gray-600">Total Income</div>
             <div className="text-2xl font-bold text-green-700">
-              {formatCurrency(events.filter((e) => e.type === 'INCOMING').reduce((sum, e) => sum + e.value, 0), currency)}
+              {formatCurrency(eventsFromStore.filter((e: ProjectionEvent) => e.type === 'INCOMING').reduce((sum: number, e: ProjectionEvent) => sum + e.value, 0), currency)}
             </div>
           </div>
         </div>
@@ -402,7 +402,7 @@ export default function MonthlyProjection() {
             id: 'month-events',
             label: 'This Month',
             icon: <Calendar className="h-4 w-4" />,
-            content: <ThisMonthsEventsManagerContent />,
+            content: <ThisMonthsEventsManagerContent monthId={monthId} />,
           },
         ]}
         defaultViewId="recurring-events"

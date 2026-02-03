@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Trash2, Calendar, Repeat } from 'lucide-react';
+import { Calendar, Repeat } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
-import { formatCurrency } from '@/lib/utils/currency';
+import SidebarPanelCard from './SidebarPanelCard';
 import { formatDate } from '@/lib/utils/date-format';
 import { useAppSelector } from '@/lib/redux/hooks';
 
@@ -246,70 +246,48 @@ export default function RecurringEventsManagerContent({
 
           {!loading && !error && filteredRules.length > 0 && (
             <div className="space-y-2">
-              {filteredRules.map((rule) => (
-                <div
-                  key={rule.id}
-                  onDoubleClick={() => handleDoubleClick(rule.id)}
-                  className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer group"
-                  data-testid={`recurring-rule-${rule.id}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium text-sm text-gray-900 truncate">
-                          {rule.name}
-                        </h3>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${getCertaintyColor(rule.certainty)}`}
-                        >
-                          {rule.certainty.toLowerCase()}
-                        </span>
-                        {isRuleExpired(rule) && (
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-600"
-                            data-testid={`expired-badge-${rule.id}`}
-                          >
-                            expired
-                          </span>
-                        )}
-                      </div>
+              {filteredRules.map((rule) => {
+                const badges = [
+                  {
+                    text: rule.certainty.toLowerCase(),
+                    color: getCertaintyColor(rule.certainty),
+                  },
+                ];
 
-                      <p className={`text-sm font-semibold mb-1 ${rule.type === 'EXPENSE' ? 'text-red-700' : 'text-green-600'}`}>
-                        {rule.type === 'EXPENSE' ? '-' : '+'}
-                        {formatCurrency(rule.value, currency)}
-                      </p>
+                if (isRuleExpired(rule)) {
+                  badges.push({
+                    text: 'expired',
+                    color: 'bg-gray-200 text-gray-600',
+                  });
+                }
 
-                      <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
-                        <Repeat className="h-3 w-3" />
-                        <span>{getFrequencyLabel(rule.frequency)}</span>
-                      </div>
-
-                      <div className="text-xs text-gray-500">
-                        {formatDate(new Date(rule.startDate), dateFormat)} →{' '}
-                        {formatDate(new Date(rule.endDate), dateFormat)}
-                      </div>
-
-                      {rule.description && (
-                        <p className="text-xs text-gray-500 mt-1 truncate">
-                          {rule.description}
-                        </p>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(rule);
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
-                      data-testid={`delete-recurring-rule-${rule.id}`}
-                      aria-label="Delete recurring rule"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                return (
+                  <SidebarPanelCard
+                    key={rule.id}
+                    title={rule.name}
+                    value={rule.value}
+                    valueType={rule.type}
+                    currency={currency}
+                    description={rule.description}
+                    badges={badges}
+                    metadata={
+                      <>
+                        <div className="flex items-center gap-1 mb-1">
+                          <Repeat className="h-3 w-3" />
+                          <span>{getFrequencyLabel(rule.frequency)}</span>
+                        </div>
+                        <div>
+                          {formatDate(new Date(rule.startDate), dateFormat)} →{' '}
+                          {formatDate(new Date(rule.endDate), dateFormat)}
+                        </div>
+                      </>
+                    }
+                    onDoubleClick={() => handleDoubleClick(rule.id)}
+                    onDelete={() => handleDelete(rule)}
+                    testId={`recurring-rule-${rule.id}`}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
