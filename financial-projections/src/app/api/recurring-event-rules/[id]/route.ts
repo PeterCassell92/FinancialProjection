@@ -18,13 +18,14 @@ import {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const rule = await getRecurringEventRuleById(params.id);
+    const { id } = await params;
+    const rule = await getRecurringEventRuleById(id);
 
     if (!rule) {
-      return createNotFoundResponse('Recurring event rule', params.id);
+      return createNotFoundResponse('Recurring event rule', id);
     }
 
     // Serialize the data
@@ -67,9 +68,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Validate request body with Zod (reuse create schema for validation)
@@ -84,9 +86,9 @@ export async function PATCH(
     const validatedData = validation.data;
 
     // Check if rule exists
-    const existingRule = await getRecurringEventRuleById(params.id);
+    const existingRule = await getRecurringEventRuleById(id);
     if (!existingRule) {
-      return createNotFoundResponse('Recurring event rule', params.id);
+      return createNotFoundResponse('Recurring event rule', id);
     }
 
     // Parse dates if provided
@@ -100,7 +102,7 @@ export async function PATCH(
 
     // Update the rule and regenerate events
     const { rule, eventsCreated } = await updateRecurringEventRuleAndRegenerateEvents(
-      params.id,
+      id,
       updates
     );
 
@@ -149,13 +151,15 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     // Check if rule exists
-    const existingRule = await getRecurringEventRuleById(params.id);
+    const existingRule = await getRecurringEventRuleById(id);
     if (!existingRule) {
-      return createNotFoundResponse('Recurring event rule', params.id);
+      return createNotFoundResponse('Recurring event rule', id);
     }
 
     // Store the date range and bank account for recalculation
@@ -164,10 +168,10 @@ export async function DELETE(
     const bankAccountId = existingRule.bankAccountId;
 
     // Delete all generated events first
-    await deleteGeneratedEventsForRule(params.id);
+    await deleteGeneratedEventsForRule(id);
 
     // Delete the rule itself
-    await deleteRecurringEventRule(params.id);
+    await deleteRecurringEventRule(id);
 
     // Recalculate balances for the affected date range
     const { recalculateBalancesFrom } = await import('@/lib/calculations/balance-calculator');

@@ -95,7 +95,7 @@ export default function Dashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Error Display - show other errors inline */}
-        {settings.error && settings.error.type !== ErrorType.DATABASE_CONNECTION && (
+        {settings.error && (
           <div className="mb-6" data-testid="dashboard-error">
             <ErrorDisplay
               error={settings.error}

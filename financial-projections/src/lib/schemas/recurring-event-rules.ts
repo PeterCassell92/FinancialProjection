@@ -16,7 +16,7 @@ const RecurringEventRuleDataSchema = z.object({
   bankAccountId: z.string(),
   startDate: z.string(), // ISO date string
   endDate: z.string(),   // ISO date string
-  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'ANNUAL']),
+  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'BIANNUAL', 'ANNUAL']),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -56,7 +56,7 @@ export const RecurringEventRuleCreateRequestSchema = z.object({
   bankAccountId: z.string(),
   startDate: z.string(), // ISO date string
   endDate: z.string(),   // ISO date string
-  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'ANNUAL']),
+  frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'BIANNUAL', 'ANNUAL']),
 }).refine(
   (data) => {
     const start = new Date(data.startDate);

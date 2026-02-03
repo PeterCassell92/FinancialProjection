@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Trash2, Calendar, Repeat } from 'lucide-react';
-import { ConfirmationModal } from './ConfirmationModal';
+import ConfirmationModal from './ConfirmationModal';
 import { formatCurrency } from '@/lib/utils/currency';
-import { formatDate } from '@/lib/utils/date';
+import { formatDate } from '@/lib/utils/date-format';
 import { useAppSelector } from '@/lib/redux/hooks';
 
 interface RecurringEventRule {
@@ -84,8 +84,13 @@ export function RecurringEventsPanel({ onEditRule, onRuleDeleted }: RecurringEve
       confirmText: 'Delete',
       confirmVariant: 'destructive',
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        // Optimistic update: Remove from local state immediately
+        setRules(prev => prev.filter(r => r.id !== rule.id));
 
+        // Close modal immediately
+        setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+
+        // Call API in the background
         try {
           const response = await fetch(`/api/recurring-event-rules/${rule.id}`, {
             method: 'DELETE',
@@ -94,21 +99,19 @@ export function RecurringEventsPanel({ onEditRule, onRuleDeleted }: RecurringEve
           const data = await response.json();
 
           if (data.success) {
-            // Remove from local state
-            setRules(prev => prev.filter(r => r.id !== rule.id));
-            setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
-
             // Notify parent to refresh projections
             if (onRuleDeleted) {
               onRuleDeleted();
             }
           } else {
+            // Rollback: Restore the rule if API call failed
+            setRules(prev => [...prev, rule].sort((a, b) => a.name.localeCompare(b.name)));
             alert(data.error || 'Failed to delete recurring rule');
-            setConfirmModal(prev => ({ ...prev, isLoading: false }));
           }
         } catch (err) {
+          // Rollback: Restore the rule if API call failed
+          setRules(prev => [...prev, rule].sort((a, b) => a.name.localeCompare(b.name)));
           alert('Failed to delete recurring rule');
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
         }
       },
     });
