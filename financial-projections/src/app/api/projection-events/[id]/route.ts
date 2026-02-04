@@ -100,6 +100,8 @@ export async function PUT(
     if (validatedData.date !== undefined) updateData.date = new Date(validatedData.date);
     if (validatedData.bankAccountId !== undefined) updateData.bankAccountId = validatedData.bankAccountId;
     if (validatedData.decisionPathId !== undefined) updateData.decisionPathId = validatedData.decisionPathId;
+    // IMPORTANT: Preserve recurringRuleId to maintain parent-child relationship for events created by recurring rules
+    if (validatedData.recurringRuleId !== undefined) updateData.recurringRuleId = validatedData.recurringRuleId;
 
     const event = await updateProjectionEvent(id, updateData);
 

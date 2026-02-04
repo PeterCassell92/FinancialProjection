@@ -80,6 +80,7 @@ export const ProjectionEventUpdateRequestSchema = z.object({
   date: z.string().optional(), // ISO date string
   decisionPathId: z.string().nullable().optional(),
   bankAccountId: z.string().optional(),
+  recurringRuleId: z.string().nullable().optional(), // Preserve link to parent recurring rule
 });
 
 /**

@@ -12,6 +12,7 @@ interface ProjectionEventFormProps {
   onSuccess: () => void;
   initialRecurringMode?: boolean;
   editingRuleId?: string | null;
+  editingEventId?: string | null;
 }
 
 interface BankAccount {
@@ -28,13 +29,15 @@ export default function ProjectionEventForm({
   onSuccess,
   initialRecurringMode = false,
   editingRuleId = null,
+  editingEventId = null,
 }: ProjectionEventFormProps) {
-  const isEditMode = !!editingRuleId;
-  const [recurrentMode, setRecurrentMode] = useState(initialRecurringMode || isEditMode);
+  const isEditMode = !!editingRuleId || !!editingEventId;
+  const [recurrentMode, setRecurrentMode] = useState(initialRecurringMode || !!editingRuleId);
   const [revisionMode, setRevisionMode] = useState(false);
   const [originalValue, setOriginalValue] = useState<number | null>(null);
   const [originalStartDate, setOriginalStartDate] = useState<Date | null>(null);
   const [originalEndDate, setOriginalEndDate] = useState<Date | null>(null);
+  const [preservedRecurringRuleId, setPreservedRecurringRuleId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -166,6 +169,59 @@ export default function ProjectionEventForm({
     fetchRule();
   }, [editingRuleId]);
 
+  // Fetch individual projection event data when editing
+  useEffect(() => {
+    if (!editingEventId) return;
+
+    const fetchEvent = async () => {
+      setLoadingRule(true); // Reuse same loading state
+      try {
+        const response = await fetch(`/api/projection-events/${editingEventId}`);
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          const event = data.data;
+          // IMPORTANT: Preserve the recurringRuleId link
+          if (event.recurringRuleId) {
+            setPreservedRecurringRuleId(event.recurringRuleId);
+          }
+
+          setFormData({
+            name: event.name,
+            description: event.description || '',
+            value: event.value.toString(),
+            type: event.type,
+            certainty: event.certainty,
+            payTo: event.payTo || '',
+            paidBy: event.paidBy || '',
+            decisionPath: event.decisionPathId || '',
+            bankAccountId: event.bankAccountId,
+          });
+        } else {
+          const errorMessage = typeof data.error === 'string'
+            ? data.error
+            : (data.error?.message || data.error?.userMessage || 'Failed to fetch projection event. Please try again.');
+          setErrorModal({
+            isOpen: true,
+            title: 'Failed to Load Event',
+            description: errorMessage,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch projection event:', error);
+        setErrorModal({
+          isOpen: true,
+          title: 'Connection Error',
+          description: 'Failed to fetch projection event. Please check your connection and try again.',
+        });
+      } finally {
+        setLoadingRule(false);
+      }
+    };
+
+    fetchEvent();
+  }, [editingEventId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -229,6 +285,26 @@ export default function ProjectionEventForm({
           endDate: recurringData.endDate ? format(recurringData.endDate, 'yyyy-MM-dd') : undefined,
           frequency: recurringData.frequency,
         };
+      } else if (editingEventId) {
+        // Updating existing individual projection event
+        endpoint = `/api/projection-events/${editingEventId}`;
+        method = 'PUT';
+        const baseData = {
+          name: formData.name,
+          description: formData.description || undefined,
+          value: parseFloat(formData.value),
+          type: formData.type,
+          certainty: formData.certainty,
+          payTo: formData.type === 'EXPENSE' ? formData.payTo || undefined : undefined,
+          paidBy: formData.type === 'INCOMING' ? formData.paidBy || undefined : undefined,
+          decisionPathId: formData.decisionPath || undefined,
+          bankAccountId: formData.bankAccountId,
+          date: format(date, 'yyyy-MM-dd'),
+        };
+        // IMPORTANT: Preserve the recurringRuleId link to maintain parent-child relationship
+        body = preservedRecurringRuleId
+          ? { ...baseData, recurringRuleId: preservedRecurringRuleId }
+          : baseData;
       } else {
         // Creating single event
         endpoint = '/api/projection-events';

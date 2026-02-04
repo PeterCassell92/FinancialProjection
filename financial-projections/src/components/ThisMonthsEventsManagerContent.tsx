@@ -3,15 +3,18 @@
 import { useState } from 'react';
 import { Calendar } from 'lucide-react';
 import SidebarPanelCard from './SidebarPanelCard';
-import { useAppSelector } from '@/lib/redux/hooks';
+import ProjectionEventEditModal from './modals/ProjectionEventEditModal';
+import ConfirmationModal from './modals/ConfirmationModal';
+import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
 import { formatDate } from '@/lib/utils/date-format';
-import { ProjectionEvent } from '@/lib/redux/projectionEventsSlice';
+import { ProjectionEvent, fetchProjectionEventsForMonth } from '@/lib/redux/projectionEventsSlice';
 
 interface ThisMonthsEventsManagerContentProps {
   monthId: string; // Format: YYYY-MM
 }
 
 export default function ThisMonthsEventsManagerContent({ monthId }: ThisMonthsEventsManagerContentProps) {
+  const dispatch = useAppDispatch();
   const events = useAppSelector((state) => state.projectionEvents.eventsByMonth[monthId] || []);
   const loading = useAppSelector((state) => state.projectionEvents.loading);
   const currency = useAppSelector((state) => state.settings.currency);
@@ -21,6 +24,85 @@ export default function ThisMonthsEventsManagerContent({ monthId }: ThisMonthsEv
 
   // Filter state
   const [selectedDecisionPathId, setSelectedDecisionPathId] = useState<string>('all');
+
+  // Edit modal state
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingEventDate, setEditingEventDate] = useState<Date>(new Date());
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    confirmVariant?: 'default' | 'destructive';
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
+
+  // Handle successful edit - refresh events and close modal
+  const handleEditSuccess = () => {
+    // Convert monthId (YYYY-MM) to startDate and endDate
+    const [year, month] = monthId.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0); // Last day of the month
+
+    dispatch(fetchProjectionEventsForMonth({
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+    }));
+    setEditingEventId(null);
+  };
+
+  // Handle delete event
+  const handleDeleteEvent = (eventId: string, eventName: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Event',
+      description: `Are you sure you want to delete "${eventName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmVariant: 'destructive',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+
+        try {
+          const response = await fetch(`/api/projection-events/${eventId}`, {
+            method: 'DELETE',
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            // Refresh events after successful delete
+            const [year, month] = monthId.split('-').map(Number);
+            const startDate = new Date(year, month - 1, 1);
+            const endDate = new Date(year, month, 0);
+
+            dispatch(fetchProjectionEventsForMonth({
+              startDate: startDate.toISOString().split('T')[0],
+              endDate: endDate.toISOString().split('T')[0],
+            }));
+
+            setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          } else {
+            // Handle error - could show error modal here
+            console.error('Failed to delete event:', data.error);
+            setConfirmModal(prev => ({ ...prev, isLoading: false }));
+            alert('Failed to delete event: ' + data.error);
+          }
+        } catch (error) {
+          console.error('Error deleting event:', error);
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          alert('Failed to delete event. Please try again.');
+        }
+      },
+    });
+  };
 
   // Get certainty color
   const getCertaintyColor = (certainty: string): string => {
@@ -164,6 +246,11 @@ export default function ThisMonthsEventsManagerContent({ monthId }: ThisMonthsEv
                     </div>
                   }
                   isDisabled={isDisabled}
+                  onDoubleClick={() => {
+                    setEditingEventId(event.id);
+                    setEditingEventDate(new Date(event.date));
+                  }}
+                  onDelete={() => handleDeleteEvent(event.id, event.name)}
                   testId={`projection-event-${event.id}`}
                 />
               );
@@ -171,6 +258,28 @@ export default function ThisMonthsEventsManagerContent({ monthId }: ThisMonthsEv
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editingEventId && (
+        <ProjectionEventEditModal
+          eventId={editingEventId}
+          date={editingEventDate}
+          onClose={() => setEditingEventId(null)}
+          onSuccess={handleEditSuccess}
+        />
+      )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmText={confirmModal.confirmText}
+        confirmVariant={confirmModal.confirmVariant}
+        isLoading={confirmModal.isLoading}
+      />
     </div>
   );
 }
