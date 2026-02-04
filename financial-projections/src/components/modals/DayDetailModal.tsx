@@ -1,0 +1,424 @@
+'use client';
+
+import { format } from 'date-fns';
+import { useState } from 'react';
+import BaseModal from './BaseModal';
+import ConfirmationModal from './ConfirmationModal';
+import ProjectionEventForm from '../ProjectionEventForm';
+import { useAppSelector } from '@/lib/redux/hooks';
+import { formatCurrency } from '@/lib/utils/currency';
+
+interface ProjectionEvent {
+  id: string;
+  name: string;
+  description?: string;
+  value: number;
+  type: 'EXPENSE' | 'INCOMING';
+  certainty: 'UNLIKELY' | 'POSSIBLE' | 'LIKELY' | 'CERTAIN';
+  payTo?: string;
+  paidBy?: string;
+  date: string;
+  recurringRuleId?: string;
+}
+
+interface DailyBalance {
+  id: string;
+  date: string;
+  expectedBalance: number;
+  actualBalance: number | null;
+}
+
+interface DayDetailModalProps {
+  date: Date;
+  events: ProjectionEvent[];
+  balance: DailyBalance | null;
+  onClose: () => void;
+  onRefresh: () => void;
+}
+
+const certaintyColors = {
+  UNLIKELY: 'bg-gray-100 text-gray-800',
+  POSSIBLE: 'bg-yellow-100 text-yellow-800',
+  LIKELY: 'bg-orange-100 text-orange-800',
+  CERTAIN: 'bg-green-100 text-green-800',
+};
+
+const typeColors = {
+  EXPENSE: 'text-red-700',
+  INCOMING: 'text-green-700',
+};
+
+export default function DayDetailModal({
+  date,
+  events,
+  balance,
+  onClose,
+  onRefresh,
+}: DayDetailModalProps) {
+  const currency = useAppSelector((state) => state.settings.currency);
+  const defaultBankAccountId = useAppSelector((state) => state.settings.defaultBankAccountId);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [recurringMode, setRecurringMode] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [settingActualBalance, setSettingActualBalance] = useState(false);
+  const [actualBalanceInput, setActualBalanceInput] = useState(
+    balance?.actualBalance?.toString() || ''
+  );
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    confirmVariant?: 'default' | 'destructive';
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
+
+  const handleSetActualBalance = async () => {
+    const value = parseFloat(actualBalanceInput);
+    if (isNaN(value)) {
+      alert('Please enter a valid number');
+      return;
+    }
+
+    if (!defaultBankAccountId) {
+      alert('No default bank account set. Please configure in settings.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/daily-balance', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: format(date, 'yyyy-MM-dd'),
+          actualBalance: value,
+          bankAccountId: defaultBankAccountId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSettingActualBalance(false);
+        onRefresh();
+      } else {
+        alert(data.error || 'Failed to set actual balance');
+      }
+    } catch (err) {
+      alert('Failed to set actual balance');
+    }
+  };
+
+  const handleClearActualBalance = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Clear Actual Balance',
+      description: 'Are you sure you want to clear the actual balance for this day?',
+      confirmText: 'Clear',
+      confirmVariant: 'destructive',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+
+        if (!defaultBankAccountId) {
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          alert('No default bank account set. Please configure in settings.');
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `/api/daily-balance?date=${format(date, 'yyyy-MM-dd')}&bankAccountId=${defaultBankAccountId}`,
+            { method: 'DELETE' }
+          );
+
+          const data = await response.json();
+
+          if (data.success) {
+            setActualBalanceInput('');
+            setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+            onRefresh();
+          } else {
+            setConfirmModal(prev => ({ ...prev, isLoading: false }));
+            alert(data.error || 'Failed to clear actual balance');
+          }
+        } catch (err) {
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          alert('Failed to clear actual balance');
+        }
+      },
+    });
+  };
+
+  const handleDeleteEvent = (eventId: string, eventName: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Event',
+      description: `Are you sure you want to delete "${eventName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmVariant: 'destructive',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+
+        try {
+          const response = await fetch(`/api/projection-events/${eventId}`, {
+            method: 'DELETE',
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+            onRefresh();
+          } else {
+            setConfirmModal(prev => ({ ...prev, isLoading: false }));
+            alert(data.error || 'Failed to delete event');
+          }
+        } catch (err) {
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          alert('Failed to delete event');
+        }
+      },
+    });
+  };
+
+  return (
+    <>
+      <BaseModal
+        isOpen={true}
+        onClose={onClose}
+        title={format(date, 'EEEE, MMMM d, yyyy')}
+        size="3xl"
+        testId="day-modal"
+      >
+        {/* Balance Section */}
+        <div className="mb-6 bg-blue-50 rounded-lg p-4" data-testid="balance-section">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold text-gray-900">Balance</h3>
+            {!settingActualBalance ? (
+              <button
+                onClick={() => setSettingActualBalance(true)}
+                className="text-sm text-blue-600 hover:text-blue-800"
+                data-testid="set-actual-balance-button"
+              >
+                {balance?.actualBalance !== null ? 'Edit Actual' : 'Set Actual'}
+              </button>
+            ) : null}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-600">Expected Balance</p>
+              <p className="text-xl font-bold text-gray-900" data-testid="expected-balance">
+                {formatCurrency(balance?.expectedBalance ?? 0, currency)}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Actual Balance</p>
+              {!settingActualBalance ? (
+                <p className="text-xl font-bold text-green-700" data-testid="actual-balance">
+                  {balance?.actualBalance !== null && balance?.actualBalance !== undefined
+                    ? formatCurrency(balance.actualBalance, currency)
+                    : 'Not set'}
+                </p>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={actualBalanceInput}
+                    onChange={(e) => setActualBalanceInput(e.target.value)}
+                    className="flex-1 px-3 py-1 border border-gray-300 rounded"
+                    placeholder="0.00"
+                    data-testid="actual-balance-input"
+                  />
+                  <button
+                    onClick={handleSetActualBalance}
+                    className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                    data-testid="save-actual-balance"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setSettingActualBalance(false)}
+                    className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                    data-testid="cancel-actual-balance"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {balance?.actualBalance != null && !settingActualBalance && (
+            <button
+              onClick={handleClearActualBalance}
+              className="mt-2 text-sm text-red-600 hover:text-red-800"
+              data-testid="clear-actual-balance"
+            >
+              Clear Actual Balance
+            </button>
+          )}
+        </div>
+
+        {/* Events Section */}
+        <div data-testid="events-section">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Events ({events.length})
+            </h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setRecurringMode(false);
+                  setShowEventForm(true);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                data-testid="add-event-button"
+              >
+                + Add Event
+              </button>
+              <button
+                onClick={() => {
+                  setRecurringMode(true);
+                  setShowEventForm(true);
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                data-testid="add-recurring-event-button"
+              >
+                + Add Recurring Event
+              </button>
+            </div>
+          </div>
+
+          {events.length === 0 ? (
+            <div className="text-center py-8 text-gray-500" data-testid="no-events-message">
+              No events for this day
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {events.map((event, index) => (
+                <div
+                  key={event.id}
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                  data-testid={`event-item__${index}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-gray-900">{event.name}</h4>
+                        <span
+                          className={`text-xs px-2 py-1 rounded ${certaintyColors[event.certainty]}`}
+                        >
+                          {event.certainty}
+                        </span>
+                      </div>
+
+                      {event.description && (
+                        <p className="text-sm text-gray-600 mb-2">{event.description}</p>
+                      )}
+
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className={`font-bold ${typeColors[event.type]}`}>
+                          {event.type === 'EXPENSE' ? '-' : '+'}
+                          {formatCurrency(event.value, currency)}
+                        </span>
+
+                        {event.type === 'EXPENSE' && event.payTo && (
+                          <span className="text-gray-600">Pay to: {event.payTo}</span>
+                        )}
+
+                        {event.type === 'INCOMING' && event.paidBy && (
+                          <span className="text-gray-600">From: {event.paidBy}</span>
+                        )}
+
+                        {event.recurringRuleId && (
+                          <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
+                            Recurring
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-4">
+                      {event.recurringRuleId && (
+                        <button
+                          onClick={() => {
+                            setEditingRuleId(event.recurringRuleId!);
+                            setRecurringMode(true);
+                            setShowEventForm(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                          data-testid={`edit-rule__${index}`}
+                          title="Edit recurring rule"
+                        >
+                          Edit Rule
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteEvent(event.id, event.name)}
+                        className="text-red-600 hover:text-red-800"
+                        data-testid={`delete-event__${index}`}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Event Form */}
+        {showEventForm && (
+          <div className="mt-6 border-t pt-6" data-testid="event-form-container">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingRuleId
+                ? 'Edit Recurring Rule'
+                : recurringMode
+                ? 'Add New Recurring Event'
+                : 'Add New Event'}
+            </h3>
+            <ProjectionEventForm
+              date={date}
+              onCancel={() => {
+                setShowEventForm(false);
+                setRecurringMode(false);
+                setEditingRuleId(null);
+              }}
+              onSuccess={() => {
+                setShowEventForm(false);
+                setRecurringMode(false);
+                setEditingRuleId(null);
+                onRefresh();
+              }}
+              initialRecurringMode={recurringMode}
+              editingRuleId={editingRuleId}
+            />
+          </div>
+        )}
+      </BaseModal>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmText={confirmModal.confirmText}
+        confirmVariant={confirmModal.confirmVariant}
+        isLoading={confirmModal.isLoading}
+      />
+    </>
+  );
+}

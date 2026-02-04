@@ -15,7 +15,7 @@ import {
   parseISO,
   isSameDay,
 } from 'date-fns';
-import DayDetailModal from '@/components/DayDetailModal';
+import DayDetailModal from '@/components/modals/DayDetailModal';
 import ScenarioPanel from '@/components/ScenarioPanel';
 import SaveScenarioModal from '@/components/modals/SaveScenarioModal';
 import RecurringEventEditModal from '@/components/modals/RecurringEventEditModal';
