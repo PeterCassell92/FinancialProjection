@@ -5,6 +5,7 @@ import bankRecordsReducer from './bankRecordsSlice';
 import bankAccountsReducer from './bankAccountsSlice';
 import activityLogReducer from './activityLogSlice';
 import projectionEventsReducer from './projectionEventsSlice';
+import layoutReducer from './layoutSlice';
 
 export const makeStore = () => {
   return configureStore({
@@ -15,6 +16,7 @@ export const makeStore = () => {
       bankAccounts: bankAccountsReducer,
       activityLog: activityLogReducer,
       projectionEvents: projectionEventsReducer,
+      layout: layoutReducer,
     },
   });
 };

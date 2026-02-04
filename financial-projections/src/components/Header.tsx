@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAppSelector } from '@/lib/redux/hooks';
 import { selectUnreadCount } from '@/lib/redux/activityLogSlice';
+import { selectHasRightSidebar, selectIsRightSidebarExpanded } from '@/lib/redux/layoutSlice';
 import ActivityLogPanel from '@/components/ActivityLog/ActivityLogPanel';
 import { Bell } from 'lucide-react';
 
@@ -18,6 +20,8 @@ export default function Header({ onOpenSettings, onOpenInfo }: HeaderProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const activityLogRef = useRef<HTMLDivElement>(null);
   const unreadCount = useAppSelector(selectUnreadCount);
+  const hasRightSidebar = useAppSelector(selectHasRightSidebar);
+  const isRightSidebarExpanded = useAppSelector(selectIsRightSidebarExpanded);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -46,15 +50,27 @@ export default function Header({ onOpenSettings, onOpenInfo }: HeaderProps) {
     onOpenInfo();
   };
 
+  // Calculate right padding based on sidebar state
+  // Expanded sidebar is typically 384px (w-96), collapsed is 64px (w-16)
+  const rightPaddingClass = hasRightSidebar
+    ? isRightSidebarExpanded
+      ? 'pr-[400px]' // Expanded sidebar width + base padding
+      : 'pr-20' // Collapsed sidebar width + base padding
+    : '';
+
   return (
     <header className="bg-white shadow-sm border-b border-gray-200" data-testid="app-header">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo/Title */}
-          <Link href="/" className="flex items-center" data-testid="header-logo">
-            <h1 className="text-xl font-bold text-gray-900">
-              Financial Projections
-            </h1>
+      <div className={`flex items-center justify-between h-16 px-2 sm:px-3 lg:px-4 transition-all duration-300 ${rightPaddingClass}`}>
+        {/* Logo */}
+        <Link href="/" className="flex items-center" data-testid="header-logo">
+            <Image
+              src="/VividMinimalistLongLogoLessVerticalPadding.png"
+              alt="Vivid Account Insights"
+              width={200}
+              height={40}
+              priority
+              className="h-10 w-auto"
+            />
           </Link>
 
           <div className="flex items-center gap-2">
@@ -153,7 +169,6 @@ export default function Header({ onOpenSettings, onOpenInfo }: HeaderProps) {
             )}
             </div>
           </div>
-        </div>
       </div>
     </header>
   );

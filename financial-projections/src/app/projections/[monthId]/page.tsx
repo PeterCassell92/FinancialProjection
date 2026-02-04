@@ -24,6 +24,7 @@ import RecurringEventsManagerContent from '@/components/RecurringEventsManagerCo
 import ThisMonthsEventsManagerContent from '@/components/ThisMonthsEventsManagerContent';
 import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
 import { fetchProjectionEventsForMonth } from '@/lib/redux/projectionEventsSlice';
+import { setRightSidebar } from '@/lib/redux/layoutSlice';
 import { formatCurrency } from '@/lib/utils/currency';
 import { Repeat, Calendar } from 'lucide-react';
 
@@ -78,6 +79,16 @@ export default function MonthlyProjection() {
   useEffect(() => {
     fetchData();
   }, [monthId]);
+
+  // Set layout state for right sidebar
+  useEffect(() => {
+    dispatch(setRightSidebar({ hasRightSidebar: true, isExpanded: !isPanelExpanded }));
+
+    return () => {
+      // Clear sidebar state when unmounting
+      dispatch(setRightSidebar({ hasRightSidebar: false }));
+    };
+  }, [dispatch, isPanelExpanded]);
 
   // Recalculate balances when decision path states change
   useEffect(() => {

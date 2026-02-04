@@ -3,12 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { format, addMonths, startOfMonth } from 'date-fns';
-import Header from '@/components/Header';
-import FullScreenSettingsModal from '@/components/FullScreenSettingsModal';
 import { useAppSelector, useAppDispatch } from '@/lib/redux/hooks';
-import { updateSettings, fetchSettings } from '@/lib/redux/settingsSlice';
-import { formatCurrency } from '@/lib/utils/currency';
-import { Currency, DateFormat } from '@prisma/client';
+import { fetchSettings } from '@/lib/redux/settingsSlice';
 import { ErrorType } from '@/lib/errors/types';
 import { DatabaseConnectionError } from '@/components/DatabaseConnectionError';
 import { ErrorDisplay } from '@/components/ErrorDisplay';
@@ -18,30 +14,6 @@ export default function Dashboard() {
   const settings = useAppSelector((state) => state.settings);
 
   const [monthOffset, setMonthOffset] = useState(0); // 0 for months 0-5, 6 for months 6-11
-  const [isSettingsModalOpenManually, setIsSettingsModalOpenManually] = useState(false);
-  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-  const [hasCompletedWelcome, setHasCompletedWelcome] = useState(false);
-
-  // Derive welcome mode from settings state - first-time users have no initial balance
-  const isWelcomeMode = !settings.loading &&
-                        settings.initialBankBalance == null &&
-                        !hasCompletedWelcome;
-
-  // Modal should be open if in welcome mode OR manually opened via burger menu
-  const isSettingsModalOpen = isWelcomeMode || isSettingsModalOpenManually;
-
-  const handleUpdateSettings = async (updates: {
-    initialBankBalance?: number;
-    initialBalanceDate?: string;
-    currency?: Currency;
-    dateFormat?: DateFormat;
-  }) => {
-    await dispatch(updateSettings(updates)).unwrap();
-    // Mark welcome as completed when settings are saved for the first time
-    if (isWelcomeMode) {
-      setHasCompletedWelcome(true);
-    }
-  };
 
   // Generate links for the next 6 months based on offset
   const currentMonth = startOfMonth(new Date());
@@ -86,14 +58,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50" data-testid="dashboard">
-      {/* Header with Burger Menu */}
-      <Header
-        onOpenSettings={() => setIsSettingsModalOpenManually(true)}
-        onOpenInfo={() => setIsInfoModalOpen(true)}
-      />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-testid="dashboard">
         {/* Error Display - show other errors inline */}
         {settings.error && (
           <div className="mb-6" data-testid="dashboard-error">
@@ -218,70 +183,5 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {/* Full-Screen Settings Modal */}
-      {settings.id && (
-        <FullScreenSettingsModal
-          isOpen={isSettingsModalOpen}
-          onClose={() => {
-            // In welcome mode, don't allow closing without setting balance
-            if (!isWelcomeMode) {
-              setIsSettingsModalOpenManually(false);
-            }
-          }}
-          currentSettings={{
-            id: settings.id,
-            initialBankBalance: settings.initialBankBalance ?? 0,
-            initialBalanceDate: settings.initialBalanceDate || new Date().toISOString(),
-            currency: settings.currency,
-            dateFormat: settings.dateFormat,
-            defaultBankAccountId: settings.defaultBankAccountId,
-          }}
-          onUpdate={handleUpdateSettings}
-        />
-      )}
-
-      {/* Info Modal (placeholder) */}
-      {isInfoModalOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-          onClick={() => setIsInfoModalOpen(false)}
-          data-testid="info-modal-overlay"
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-            data-testid="info-modal"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">About Financial Projections</h2>
-              <button
-                onClick={() => setIsInfoModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
-                data-testid="info-modal-close-button"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="prose max-w-none">
-              <p className="text-gray-600 mb-4">
-                This application helps you project your bank balance forward through time by tracking expected expenses and income.
-              </p>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Features:</h3>
-              <ul className="list-disc list-inside text-gray-600 space-y-2">
-                <li>Track projection events with different certainty levels (unlikely, possible, likely, certain)</li>
-                <li>Create recurring events that automatically generate across date ranges</li>
-                <li>View daily balance projections in a calendar format</li>
-                <li>Set actual balances to override calculated projections</li>
-                <li>Visualize financial trends with charts and analytics</li>
-                <li>Customize currency and date format preferences</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
