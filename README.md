@@ -1,4 +1,4 @@
-# Financial Projections & Analysis App
+# Vivid Account Insights
 
 A comprehensive Next.js application for personal financial management that combines historical transaction analysis with forward-looking projections. Track your past spending patterns, analyze transaction history, and project your financial future with AI-assisted insights.
 
