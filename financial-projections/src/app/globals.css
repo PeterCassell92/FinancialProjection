@@ -37,6 +37,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-shade: var(--brand-shade);
+  --color-brand-neutral: var(--brand-neutral);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -48,6 +52,13 @@
 
 :root {
   --radius: 0.625rem;
+
+  /* Brand Colors */
+  --brand-primary: #302d6d;
+  --brand-accent: #86f4cf;
+  --brand-shade: #161854;
+  --brand-neutral: #ebf4f3;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -82,6 +93,12 @@
 }
 
 .dark {
+  /* Brand Colors - Same in dark mode */
+  --brand-primary: #302d6d;
+  --brand-accent: #86f4cf;
+  --brand-shade: #161854;
+  --brand-neutral: #ebf4f3;
+
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
