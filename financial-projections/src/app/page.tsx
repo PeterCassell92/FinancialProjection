@@ -89,7 +89,7 @@ export default function Dashboard() {
                 {monthOffset === 0 && (
                   <button
                     onClick={handleShowNextSix}
-                    className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md transition-colors font-medium"
+                    className="text-sm px-3 py-1.5 bg-blue-60 text-blue-700 hover:bg-blue-100 rounded-md transition-colors font-medium"
                     data-testid="show-next-six-button"
                   >
                     Next 6 →
