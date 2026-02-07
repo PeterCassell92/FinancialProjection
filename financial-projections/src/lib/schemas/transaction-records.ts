@@ -156,6 +156,7 @@ export const CsvUploadResponseSchema = z.object({
     recordsProcessed: z.number().optional(),
     recordsImported: z.number().optional(),
     recordsFailed: z.number().optional(),
+    zeroEventDaysInserted: z.number().optional(),
     errors: z.array(z.string()).optional(),
     metadata: z.any().optional(),
     details: z.string().optional(),

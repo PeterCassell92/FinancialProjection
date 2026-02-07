@@ -73,6 +73,7 @@ enum TransactionType {
   INT // Interest
   FEE // Fee
   OTHER // Other
+  ZERO_EVENT // No transactions on this day, balance carried forward
 }
 
 enum BankProvider {
@@ -313,6 +314,7 @@ model TransactionRecord {
 
   @@index([bankAccountId])
   @@index([transactionDate])
+  @@index([bankAccountId, transactionDate])
 }
 
 // Spending Type (for categorization)

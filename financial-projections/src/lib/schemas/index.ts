@@ -32,3 +32,6 @@ export * from './decision-paths';
 
 // Calculate Balances
 export * from './calculate-balances';
+
+// Transaction Coverage
+export * from './transaction-coverage';

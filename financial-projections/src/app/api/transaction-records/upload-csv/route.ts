@@ -8,6 +8,7 @@ import {
 import {
   batchCreateTransactionRecords,
   CreateTransactionRecordInput,
+  insertZeroEventDayRecords,
 } from '@/lib/dal/transaction-records';
 import {
   getUploadOperationById,
@@ -173,10 +174,21 @@ export async function POST(request: NextRequest) {
     // Batch insert transactions
     const insertedCount = await batchCreateTransactionRecords(transactionInputs);
 
+    // Fill gaps with ZERO_EVENT records for complete date coverage
+    let zeroEventCount = 0;
+    if (uploadOperation.earliestDate && uploadOperation.latestDate) {
+      zeroEventCount = await insertZeroEventDayRecords(
+        bankAccount.id,
+        uploadOperation.earliestDate,
+        uploadOperation.latestDate,
+        uploadOperationId!
+      );
+    }
+
     // Update upload operation status to COMPLETED
     await updateUploadOperation(uploadOperationId, {
       operationStatus: insertedCount === parseResult.transactions.length ? 'COMPLETED' : 'PARTIAL',
-      numberOfRecords: insertedCount,
+      numberOfRecords: insertedCount + zeroEventCount,
     });
 
     const response: CsvUploadResponse = {
@@ -188,9 +200,10 @@ export async function POST(request: NextRequest) {
         recordsProcessed: parseResult.transactions.length,
         recordsImported: insertedCount,
         recordsFailed: parseResult.transactions.length - insertedCount,
+        zeroEventDaysInserted: zeroEventCount,
         errors: parseResult.errors.length > 0 ? parseResult.errors : undefined,
       },
-      message: `Successfully imported ${insertedCount} transactions`,
+      message: `Successfully imported ${insertedCount} transactions${zeroEventCount > 0 ? ` (${zeroEventCount} zero-event days added for coverage)` : ''}`,
     };
 
     return NextResponse.json(response, { status: 201 });

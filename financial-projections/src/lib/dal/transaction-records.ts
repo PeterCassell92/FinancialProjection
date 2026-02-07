@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import { TransactionRecord, TransactionType, Prisma } from '@prisma/client';
 import { getSpendingTypeAssociationsForTransaction } from './categorization-rules';
+import { eachDayOfInterval, startOfDay } from 'date-fns';
 
 export interface CreateTransactionRecordInput {
   transactionDate: Date;
@@ -721,5 +722,288 @@ export async function checkDateRangeOverlap(
     overlappingRecordCount: overlappingRecords.length,
     earliestOverlappingDate: overlappingRecords[0].transactionDate,
     latestOverlappingDate: overlappingRecords[overlappingRecords.length - 1].transactionDate,
+  };
+}
+
+/**
+ * Get the most recent TransactionRecord balance on or before a given date for a bank account.
+ * This is the key query for finding starting balances for projections.
+ * Uses the composite index [bankAccountId, transactionDate] for efficiency.
+ */
+export async function getLastTransactionBalanceOnOrBefore(
+  date: Date,
+  bankAccountId: string
+): Promise<{ balance: number; date: Date } | null> {
+  const record = await prisma.transactionRecord.findFirst({
+    where: {
+      bankAccountId,
+      transactionDate: {
+        lte: startOfDay(date),
+      },
+    },
+    orderBy: [
+      { transactionDate: 'desc' },
+      { createdAt: 'desc' },
+    ],
+    select: {
+      balance: true,
+      transactionDate: true,
+    },
+  });
+
+  if (!record) {
+    return null;
+  }
+
+  return {
+    balance: parseFloat(record.balance.toString()),
+    date: record.transactionDate,
+  };
+}
+
+/**
+ * Insert ZERO_EVENT records for days within a date range that have no transaction records.
+ * This ensures complete date coverage for a bank account within imported ranges.
+ *
+ * For each gap day, carries forward the balance from the most recent prior transaction.
+ */
+export async function insertZeroEventDayRecords(
+  bankAccountId: string,
+  startDate: Date,
+  endDate: Date,
+  uploadOperationId: string
+): Promise<number> {
+  const rangeStart = startOfDay(startDate);
+  const rangeEnd = startOfDay(endDate);
+
+  // Get all existing transaction dates in the range for this account
+  const existingRecords = await prisma.transactionRecord.findMany({
+    where: {
+      bankAccountId,
+      transactionDate: {
+        gte: rangeStart,
+        lte: rangeEnd,
+      },
+    },
+    select: {
+      transactionDate: true,
+      balance: true,
+    },
+    orderBy: [
+      { transactionDate: 'asc' },
+      { createdAt: 'desc' },
+    ],
+  });
+
+  // Build a set of dates that already have records and a map of last balance per day
+  const existingDates = new Set<string>();
+  const lastBalancePerDay = new Map<string, number>();
+  for (const record of existingRecords) {
+    const dateKey = startOfDay(record.transactionDate).toISOString();
+    existingDates.add(dateKey);
+    // Keep overwriting - since ordered by asc date then desc createdAt,
+    // the last one per date key is the most recent record
+    lastBalancePerDay.set(dateKey, parseFloat(record.balance.toString()));
+  }
+
+  // Get the balance from the day before rangeStart (for carry-forward on first gap day)
+  const priorBalance = await getLastTransactionBalanceOnOrBefore(
+    new Date(rangeStart.getTime() - 86400000), // day before rangeStart
+    bankAccountId
+  );
+
+  // Generate all days in the range
+  const allDays = eachDayOfInterval({ start: rangeStart, end: rangeEnd });
+
+  // Find gap days and build ZERO_EVENT records
+  const zeroEventRecords: Array<{
+    transactionDate: Date;
+    transactionType: TransactionType;
+    transactionDescription: string;
+    debitAmount: null;
+    creditAmount: null;
+    balance: Prisma.Decimal;
+    bankAccountId: string;
+  }> = [];
+
+  let carryForwardBalance = priorBalance ? priorBalance.balance : 0;
+
+  for (const day of allDays) {
+    const dateKey = startOfDay(day).toISOString();
+
+    if (existingDates.has(dateKey)) {
+      // This day has transactions - update carry-forward balance
+      carryForwardBalance = lastBalancePerDay.get(dateKey) ?? carryForwardBalance;
+    } else {
+      // Gap day - insert ZERO_EVENT record
+      zeroEventRecords.push({
+        transactionDate: startOfDay(day),
+        transactionType: 'ZERO_EVENT' as TransactionType,
+        transactionDescription: 'No transactions',
+        debitAmount: null,
+        creditAmount: null,
+        balance: new Prisma.Decimal(carryForwardBalance),
+        bankAccountId,
+      });
+    }
+  }
+
+  if (zeroEventRecords.length === 0) {
+    return 0;
+  }
+
+  // Batch insert ZERO_EVENT records
+  const result = await prisma.transactionRecord.createMany({
+    data: zeroEventRecords,
+    skipDuplicates: true,
+  });
+
+  // Create junction table entries to link zero-event records to the upload operation
+  if (result.count > 0) {
+    // Fetch the newly created ZERO_EVENT records to get their IDs
+    const createdZeroEvents = await prisma.transactionRecord.findMany({
+      where: {
+        bankAccountId,
+        transactionType: 'ZERO_EVENT',
+        transactionDate: {
+          gte: rangeStart,
+          lte: rangeEnd,
+        },
+      },
+      select: {
+        id: true,
+        transactionDate: true,
+      },
+    });
+
+    // Build junction entries - use a simple row number offset
+    const junctionData = createdZeroEvents.map((record, index) => ({
+      transactionRecordId: record.id,
+      uploadOperationId,
+      csvRowNumber: -1 * (index + 1), // Negative row numbers to distinguish from real CSV rows
+    }));
+
+    if (junctionData.length > 0) {
+      await prisma.transactionUploadSource.createMany({
+        data: junctionData,
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  return result.count;
+}
+
+/**
+ * Get the closing balance per day from transaction records for a bank account within a date range.
+ * Returns the balance from the last transaction on each day.
+ * Used by the projections view to show true (transaction-based) balances.
+ */
+export async function getDailyTransactionBalances(
+  bankAccountId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<Array<{ date: Date; closingBalance: number }>> {
+  const rangeStart = startOfDay(startDate);
+  const rangeEnd = startOfDay(endDate);
+
+  // Get all transaction records in the range, ordered by date asc then createdAt desc
+  // so we can pick the last balance per day
+  const records = await prisma.transactionRecord.findMany({
+    where: {
+      bankAccountId,
+      transactionDate: {
+        gte: rangeStart,
+        lte: rangeEnd,
+      },
+    },
+    select: {
+      transactionDate: true,
+      balance: true,
+      createdAt: true,
+    },
+    orderBy: [
+      { transactionDate: 'asc' },
+      { createdAt: 'desc' },
+    ],
+  });
+
+  // Group by date and take the first record per date (most recent createdAt due to desc order)
+  const balanceByDate = new Map<string, { date: Date; closingBalance: number }>();
+  for (const record of records) {
+    const dateKey = startOfDay(record.transactionDate).toISOString();
+    if (!balanceByDate.has(dateKey)) {
+      balanceByDate.set(dateKey, {
+        date: record.transactionDate,
+        closingBalance: parseFloat(record.balance.toString()),
+      });
+    }
+  }
+
+  return Array.from(balanceByDate.values());
+}
+
+export interface CoverageRange {
+  startDate: Date;
+  endDate: Date;
+}
+
+/**
+ * Get continuous date coverage ranges for a bank account.
+ * Queries distinct transaction dates and groups consecutive dates into ranges.
+ * With ZERO_EVENT records filling imported ranges, gaps only appear between non-contiguous imports.
+ */
+export async function getTransactionCoverage(
+  bankAccountId: string
+): Promise<{
+  coverageRanges: CoverageRange[];
+  totalCoveredDays: number;
+  latestCoveredDate: Date | null;
+}> {
+  // Get all distinct transaction dates for this account, ordered ascending
+  const distinctDates = await prisma.transactionRecord.findMany({
+    where: { bankAccountId },
+    select: { transactionDate: true },
+    distinct: ['transactionDate'],
+    orderBy: { transactionDate: 'asc' },
+  });
+
+  if (distinctDates.length === 0) {
+    return {
+      coverageRanges: [],
+      totalCoveredDays: 0,
+      latestCoveredDate: null,
+    };
+  }
+
+  // Group consecutive dates into ranges
+  const coverageRanges: CoverageRange[] = [];
+  let rangeStart = distinctDates[0].transactionDate;
+  let rangeEnd = distinctDates[0].transactionDate;
+
+  for (let i = 1; i < distinctDates.length; i++) {
+    const currentDate = distinctDates[i].transactionDate;
+    const prevDate = distinctDates[i - 1].transactionDate;
+
+    // Check if dates are consecutive (gap of 1 day = 86400000ms)
+    const diffMs = currentDate.getTime() - prevDate.getTime();
+    if (diffMs <= 86400000) {
+      // Consecutive - extend the current range
+      rangeEnd = currentDate;
+    } else {
+      // Gap found - close current range and start new one
+      coverageRanges.push({ startDate: rangeStart, endDate: rangeEnd });
+      rangeStart = currentDate;
+      rangeEnd = currentDate;
+    }
+  }
+
+  // Close the final range
+  coverageRanges.push({ startDate: rangeStart, endDate: rangeEnd });
+
+  return {
+    coverageRanges,
+    totalCoveredDays: distinctDates.length,
+    latestCoveredDate: distinctDates[distinctDates.length - 1].transactionDate,
   };
 }
