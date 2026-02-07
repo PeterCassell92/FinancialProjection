@@ -35,3 +35,6 @@ export * from './calculate-balances';
 
 // Transaction Coverage
 export * from './transaction-coverage';
+
+// Compute Balances (on-the-fly)
+export * from './compute-balances';
