@@ -383,6 +383,7 @@ const events = await prisma.projectionEvent.findMany({
 
 ### Balance Calculation
 
+Daily Balance methodology to be reviewed
 **Optimization strategies:**
 - Only recalculate affected date ranges
 - Batch updates for daily balances
