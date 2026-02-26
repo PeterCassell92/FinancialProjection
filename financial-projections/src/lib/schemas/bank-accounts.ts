@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Bank Account base data schema
  */
-const BankAccountDataSchema = z.object({
+export const BankAccountDataSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable(),

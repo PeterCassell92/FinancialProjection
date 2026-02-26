@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@omer-x/next-openapi-json-generator": "^2.0.3",
+    "@omer-x/next-openapi-route-handler": "^2.0.2",
     "@prisma/adapter-pg": "^7.1.0",
     "@prisma/client": "^7.1.0",
     "@radix-ui/react-dialog": "^1.1.15",

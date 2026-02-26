@@ -1,197 +1,203 @@
-import { NextRequest, NextResponse } from 'next/server';
+import defineRoute from '@omer-x/next-openapi-route-handler';
+import { z } from 'zod';
 import {
   getBankAccountById,
   updateBankAccount,
   deleteBankAccount,
   deleteBankAccountAndAllAssociatedRecords,
-  UpdateBankAccountInput,
 } from '@/lib/dal/bank-accounts';
 import {
-  BankAccountGetResponse,
+  BankAccountGetResponseSchema,
   BankAccountUpdateRequestSchema,
-  BankAccountUpdateResponse,
-  BankAccountDeleteResponse,
+  BankAccountUpdateResponseSchema,
+  BankAccountDeleteResponseSchema,
 } from '@/lib/schemas';
+
+const pathParams = z.object({
+  id: z.string(),
+});
 
 /**
  * GET /api/bank-accounts/[id]
  * Get a specific bank account
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const bankAccount = await getBankAccountById(id);
+export const { GET } = defineRoute({
+  operationId: 'getBankAccountById',
+  method: 'GET',
+  summary: 'Get a specific bank account',
+  description: 'Retrieve a bank account by its ID',
+  tags: ['Bank Accounts'],
+  pathParams,
+  action: async ({ pathParams: { id } }) => {
+    try {
+      const bankAccount = await getBankAccountById(id);
 
-    if (!bankAccount) {
-      const response: BankAccountGetResponse = {
-        success: false,
-        error: 'Bank account not found',
+      if (!bankAccount) {
+        return Response.json(
+          { success: false, error: 'Bank account not found' },
+          { status: 404 }
+        );
+      }
+
+      const serializedData = {
+        id: bankAccount.id,
+        name: bankAccount.name,
+        description: bankAccount.description,
+        sortCode: bankAccount.sortCode,
+        accountNumber: bankAccount.accountNumber,
+        provider: bankAccount.provider,
+        createdAt: bankAccount.createdAt.toISOString(),
+        updatedAt: bankAccount.updatedAt.toISOString(),
       };
-      return NextResponse.json(response, { status: 404 });
+
+      return Response.json({ success: true, data: serializedData });
+    } catch (error) {
+      console.error('Error fetching bank account:', error);
+      return Response.json(
+        { success: false, error: 'Failed to fetch bank account' },
+        { status: 500 }
+      );
     }
-
-    // Serialize the data
-    const serializedData = {
-      id: bankAccount.id,
-      name: bankAccount.name,
-      description: bankAccount.description,
-      sortCode: bankAccount.sortCode,
-      accountNumber: bankAccount.accountNumber,
-      provider: bankAccount.provider,
-      createdAt: bankAccount.createdAt.toISOString(),
-      updatedAt: bankAccount.updatedAt.toISOString(),
-    };
-
-    const response: BankAccountGetResponse = {
-      success: true,
-      data: serializedData,
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error('Error fetching bank account:', error);
-    const response: BankAccountGetResponse = {
-      success: false,
-      error: 'Failed to fetch bank account',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'Bank account retrieved successfully',
+      content: BankAccountGetResponseSchema,
+    },
+    404: { description: 'Bank account not found' },
+    500: { description: 'Server error' },
+  },
+});
 
 /**
  * PATCH /api/bank-accounts/[id]
  * Update a bank account
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
+export const { PATCH } = defineRoute({
+  operationId: 'updateBankAccount',
+  method: 'PATCH',
+  summary: 'Update a bank account',
+  description: 'Partially update a bank account by its ID',
+  tags: ['Bank Accounts'],
+  pathParams,
+  requestBody: BankAccountUpdateRequestSchema,
+  action: async ({ pathParams: { id }, body }) => {
+    try {
+      // body is already validated by defineRoute via BankAccountUpdateRequestSchema
+      const bankAccount = await updateBankAccount(id, {
+        name: body.name,
+        description: body.description ?? undefined,
+        provider: body.provider,
+      });
 
-    // Validate request body with Zod
-    const validation = BankAccountUpdateRequestSchema.safeParse(body);
-    if (!validation.success) {
-      const response: BankAccountUpdateResponse = {
-        success: false,
-        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
+      const serializedData = {
+        id: bankAccount.id,
+        name: bankAccount.name,
+        description: bankAccount.description,
+        sortCode: bankAccount.sortCode,
+        accountNumber: bankAccount.accountNumber,
+        provider: bankAccount.provider,
+        createdAt: bankAccount.createdAt.toISOString(),
+        updatedAt: bankAccount.updatedAt.toISOString(),
       };
-      return NextResponse.json(response, { status: 400 });
+
+      return Response.json({
+        success: true,
+        data: serializedData,
+        message: 'Bank account updated successfully',
+      });
+    } catch (error: unknown) {
+      console.error('Error updating bank account:', error);
+
+      if (error instanceof Object && 'code' in error && error.code === 'P2025') {
+        return Response.json(
+          { success: false, error: 'Bank account not found' },
+          { status: 404 }
+        );
+      }
+
+      return Response.json(
+        { success: false, error: 'Failed to update bank account' },
+        { status: 500 }
+      );
     }
-
-    const validatedData = validation.data;
-    const input: UpdateBankAccountInput = {
-      name: validatedData.name,
-      description: validatedData.description ?? undefined,
-      provider: validatedData.provider,
-    };
-
-    const bankAccount = await updateBankAccount(id, input);
-
-    // Serialize the response
-    const serializedData = {
-      id: bankAccount.id,
-      name: bankAccount.name,
-      description: bankAccount.description,
-      sortCode: bankAccount.sortCode,
-      accountNumber: bankAccount.accountNumber,
-      provider: bankAccount.provider,
-      createdAt: bankAccount.createdAt.toISOString(),
-      updatedAt: bankAccount.updatedAt.toISOString(),
-    };
-
-    const response: BankAccountUpdateResponse = {
-      success: true,
-      data: serializedData,
-      message: 'Bank account updated successfully',
-    };
-
-    return NextResponse.json(response);
-  } catch (error: any) {
-    console.error('Error updating bank account:', error);
-
-    if (error.code === 'P2025') {
-      const response: BankAccountUpdateResponse = {
-        success: false,
-        error: 'Bank account not found',
-      };
-      return NextResponse.json(response, { status: 404 });
-    }
-
-    const response: BankAccountUpdateResponse = {
-      success: false,
-      error: 'Failed to update bank account',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'Bank account updated successfully',
+      content: BankAccountUpdateResponseSchema,
+    },
+    400: { description: 'Invalid request body' },
+    404: { description: 'Bank account not found' },
+    500: { description: 'Server error' },
+  },
+});
 
 /**
  * DELETE /api/bank-accounts/[id]
  * Delete a bank account
- *
- * Query params:
- * - deleteAll=true: Delete the bank account AND all associated records
- *   (transactions, projection events, recurring rules, daily balances, upload operations)
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const deleteAll = searchParams.get('deleteAll') === 'true';
+export const { DELETE } = defineRoute({
+  operationId: 'deleteBankAccount',
+  method: 'DELETE',
+  summary: 'Delete a bank account',
+  description: 'Delete a bank account by ID. Use deleteAll=true query param to also delete all associated transactions, events, and records.',
+  tags: ['Bank Accounts'],
+  pathParams,
+  queryParams: z.object({
+    deleteAll: z.string().optional(),
+  }),
+  action: async ({ pathParams: { id }, queryParams }) => {
+    try {
+      const deleteAll = queryParams?.deleteAll === 'true';
 
-    if (deleteAll) {
-      // Delete bank account and all associated records
-      const transactionCount = await deleteBankAccountAndAllAssociatedRecords(id);
+      if (deleteAll) {
+        const transactionCount = await deleteBankAccountAndAllAssociatedRecords(id);
+        return Response.json({
+          success: true,
+          message: `Bank account and all associated records deleted successfully (${transactionCount} transactions)`,
+        });
+      } else {
+        await deleteBankAccount(id);
+        return Response.json({
+          success: true,
+          message: 'Bank account deleted successfully',
+        });
+      }
+    } catch (error: unknown) {
+      console.error('Error deleting bank account:', error);
+      const errCode = error instanceof Object && 'code' in error ? (error as { code: string }).code : null;
 
-      const response: BankAccountDeleteResponse = {
-        success: true,
-        message: `Bank account and all associated records deleted successfully (${transactionCount} transactions)`,
-      };
+      if (errCode === 'P2025') {
+        return Response.json(
+          { success: false, error: 'Bank account not found' },
+          { status: 404 }
+        );
+      }
 
-      return NextResponse.json(response);
-    } else {
-      // Delete only the bank account (will fail if there are related records)
-      await deleteBankAccount(id);
+      if (errCode === 'P2003') {
+        return Response.json(
+          {
+            success: false,
+            error: 'Cannot delete bank account with existing transactions or events. Use deleteAll=true to delete all associated records.',
+          },
+          { status: 409 }
+        );
+      }
 
-      const response: BankAccountDeleteResponse = {
-        success: true,
-        message: 'Bank account deleted successfully',
-      };
-
-      return NextResponse.json(response);
+      return Response.json(
+        { success: false, error: 'Failed to delete bank account' },
+        { status: 500 }
+      );
     }
-  } catch (error: any) {
-    console.error('Error deleting bank account:', error);
-
-    if (error.code === 'P2025') {
-      const response: BankAccountDeleteResponse = {
-        success: false,
-        error: 'Bank account not found',
-      };
-      return NextResponse.json(response, { status: 404 });
-    }
-
-    // Check for foreign key constraint violation
-    if (error.code === 'P2003') {
-      const response: BankAccountDeleteResponse = {
-        success: false,
-        error: 'Cannot delete bank account with existing transactions or events. Use deleteAll=true to delete all associated records.',
-      };
-      return NextResponse.json(response, { status: 409 });
-    }
-
-    const response: BankAccountDeleteResponse = {
-      success: false,
-      error: 'Failed to delete bank account',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'Bank account deleted successfully',
+      content: BankAccountDeleteResponseSchema,
+    },
+    404: { description: 'Bank account not found' },
+    409: { description: 'Bank account has associated records - use deleteAll=true' },
+    500: { description: 'Server error' },
+  },
+});
