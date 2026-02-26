@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Header from '@/components/Header';
 import CSVUploadStepper from '@/components/CSVUploadStepper';
 
 export default function BankRecordsPage() {
@@ -11,20 +10,8 @@ export default function BankRecordsPage() {
     router.push('/bank-records/transactions');
   };
 
-  const handleOpenSettings = () => {
-    // TODO: Implement settings modal
-    console.log('Settings clicked');
-  };
-
-  const handleOpenInfo = () => {
-    // TODO: Implement info modal
-    console.log('Info clicked');
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header onOpenSettings={handleOpenSettings} onOpenInfo={handleOpenInfo} />
-
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Page Header */}
         <div className="mb-8">

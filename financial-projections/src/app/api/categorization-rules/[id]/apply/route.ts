@@ -20,7 +20,7 @@ export const { POST } = defineRoute({
   operationId: 'applyCategorizationRule',
   method: 'POST',
   summary: 'Apply a categorization rule',
-  description: 'Apply a categorization rule to existing transactions for a specific bank account',
+  description: 'Apply a categorization rule to existing transactions for a specific bank account. Only adds spending types not already associated with each transaction — existing tags are preserved.',
   tags: ['Categorization Rules'],
   pathParams,
   requestBody: ApplyCategorizationRuleRequestSchema,

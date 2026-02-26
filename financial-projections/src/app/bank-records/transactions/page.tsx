@@ -29,7 +29,6 @@ import {
   fetchSettings,
   selectDefaultBankAccountId,
 } from '@/lib/redux/settingsSlice';
-import Header from '@/components/Header';
 import SpendingTypeManagement from '@/components/SpendingTypeManagement';
 import CategorizationRulesManagement from '@/components/CategorizationRulesManagement';
 import { Button } from '@/components/ui/button';
@@ -189,8 +188,6 @@ export default function TransactionsPage() {
 
   return (
     <div data-testid="transactions-page" className="min-h-screen bg-gray-50">
-      <Header onOpenSettings={() => {}} onOpenInfo={() => {}} />
-
       <div className="max-w-[1600px] mx-auto px-4 py-8">
         {/* Page Header */}
         <div className="mb-8">

@@ -19,7 +19,7 @@ export const { GET } = defineRoute({
   operationId: 'getTransactionAnalytics',
   method: 'GET',
   summary: 'Get transaction analytics',
-  description: 'Get transaction analytics grouped by spending types for a bank account',
+  description: 'Get transaction analytics grouped by spending types for a bank account. Transactions with multiple spending types have amounts split proportionally across categories. Uncategorized transactions are grouped separately. Categories sorted by total debit descending, monthly data sorted chronologically.',
   tags: ['Transaction Records'],
   queryParams: z.object({
     bankAccountId: z.string(),

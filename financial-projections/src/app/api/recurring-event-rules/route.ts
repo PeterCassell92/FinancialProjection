@@ -69,7 +69,7 @@ export const { POST } = defineRoute({
   operationId: 'createRecurringEventRule',
   method: 'POST',
   summary: 'Create a recurring event rule',
-  description: 'Create a new recurring event rule and generate projection events',
+  description: 'Create a new recurring event rule and auto-generate child projection events. Frequency options: DAILY, WEEKLY, MONTHLY (same day each month or last day), ANNUAL. End date is required. Balances are recalculated across the rule date range.',
   tags: ['Recurring Event Rules'],
   requestBody: RecurringEventRuleCreateRequestSchema,
   action: async ({ body }) => {

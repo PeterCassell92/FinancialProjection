@@ -13,7 +13,7 @@ export const { GET } = defineRoute({
   operationId: 'getBalanceHistory',
   method: 'GET',
   summary: 'Get balance history',
-  description: 'Get daily account balances over a date range for a bank account',
+  description: 'Get daily account balances over a date range for a bank account. Returns end-of-day balance for each day with statistics (positive/negative/zero days, min/max/average). Dates and currency formatted according to user settings.',
   tags: ['Transaction Records'],
   queryParams: z.object({
     bankAccountId: z.string(),

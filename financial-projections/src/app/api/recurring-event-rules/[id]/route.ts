@@ -89,7 +89,7 @@ export const { PATCH } = defineRoute({
   operationId: 'updateRecurringEventRule',
   method: 'PATCH',
   summary: 'Update a recurring event rule',
-  description: 'Update a recurring event rule and regenerate its events',
+  description: 'Update a recurring event rule, delete all previously generated events, and regenerate new events from the updated rule. Balances are recalculated across the affected date range.',
   tags: ['Recurring Event Rules'],
   pathParams,
   requestBody: RecurringEventRuleUpdateRequestSchema,
@@ -175,7 +175,7 @@ export const { DELETE } = defineRoute({
   operationId: 'deleteRecurringEventRule',
   method: 'DELETE',
   summary: 'Delete a recurring event rule',
-  description: 'Delete a recurring event rule and all its generated events, then recalculate balances',
+  description: 'Delete a recurring event rule and cascade-delete all its generated child projection events. Balances are recalculated across the rule date range.',
   tags: ['Recurring Event Rules'],
   pathParams,
   action: async ({ pathParams: { id } }) => {

@@ -119,7 +119,7 @@ export const { PUT } = defineRoute({
   operationId: 'setActualBalance',
   method: 'PUT',
   summary: 'Set actual balance',
-  description: 'Set actual balance for a specific date and bank account, then recalculate forward balances',
+  description: 'Set actual balance for a specific date and bank account. The actual balance overrides the calculated expectedBalance. Triggers automatic recalculation of all subsequent daily balances for the next 6 months.',
   tags: ['Daily Balance'],
   requestBody: DailyBalanceSetActualRequestSchema,
   action: async ({ body }) => {
@@ -178,7 +178,7 @@ export const { DELETE } = defineRoute({
   operationId: 'clearActualBalance',
   method: 'DELETE',
   summary: 'Clear actual balance',
-  description: 'Clear actual balance for a specific date and bank account, then recalculate forward balances',
+  description: 'Clear actual balance for a specific date and bank account, reverting to the calculated expectedBalance. Triggers automatic recalculation of all subsequent daily balances for the next 6 months.',
   tags: ['Daily Balance'],
   queryParams: z.object({
     date: z.string().optional(),

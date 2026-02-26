@@ -141,7 +141,7 @@ export const { DELETE } = defineRoute({
   operationId: 'deleteBankAccount',
   method: 'DELETE',
   summary: 'Delete a bank account',
-  description: 'Delete a bank account by ID. Use deleteAll=true query param to also delete all associated transactions, events, and records.',
+  description: 'Delete a bank account by ID. Without deleteAll, fails with 409 if the account has related records. With deleteAll=true, cascade-deletes all projection events, recurring rules, daily balances, upload operations, and transaction records for the account.',
   tags: ['Bank Accounts'],
   pathParams,
   queryParams: z.object({

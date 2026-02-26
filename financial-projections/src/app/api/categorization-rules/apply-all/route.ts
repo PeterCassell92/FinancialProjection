@@ -16,7 +16,7 @@ export const { POST } = defineRoute({
   operationId: 'applyAllCategorizationRules',
   method: 'POST',
   summary: 'Apply all categorization rules',
-  description: 'Apply all categorization rules to existing transactions for a specific bank account',
+  description: 'Apply all categorization rules to existing transactions for a specific bank account. More efficient than applying rules individually — fetches all rules and transactions once, then processes in a single pass. Only adds spending types not already associated.',
   tags: ['Categorization Rules'],
   requestBody: ApplyAllCategorizationRulesRequestSchema,
   action: async ({ body }) => {

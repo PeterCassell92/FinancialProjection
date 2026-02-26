@@ -80,7 +80,7 @@ export const { PUT } = defineRoute({
   operationId: 'updateProjectionEvent',
   method: 'PUT',
   summary: 'Update a projection event',
-  description: 'Update a projection event and recalculate forward balances',
+  description: 'Update a projection event (partial update) and automatically recalculate forward balances for the next 6 months. Include recurringRuleId to preserve the parent-child link to a recurring rule.',
   tags: ['Projection Events'],
   pathParams,
   requestBody: ProjectionEventUpdateRequestSchema,
@@ -161,7 +161,7 @@ export const { DELETE } = defineRoute({
   operationId: 'deleteProjectionEvent',
   method: 'DELETE',
   summary: 'Delete a projection event',
-  description: 'Delete a projection event and recalculate forward balances',
+  description: 'Delete a single projection event and automatically recalculate forward balances for the next 6 months. To delete all events from a recurring rule, delete the rule itself instead (cascade delete).',
   tags: ['Projection Events'],
   pathParams,
   action: async ({ pathParams: { id } }) => {

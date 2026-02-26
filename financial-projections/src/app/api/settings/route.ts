@@ -84,7 +84,7 @@ export const { PUT } = defineRoute({
   operationId: 'updateSettings',
   method: 'PUT',
   summary: 'Update settings',
-  description: 'Update settings and create/update the initial balance projection event',
+  description: 'Update settings and set the initial actual balance on the default bank account. Changing the initial balance triggers recalculation of all forward balances.',
   tags: ['Settings'],
   requestBody: SettingsPutRequestSchema,
   action: async ({ body }) => {

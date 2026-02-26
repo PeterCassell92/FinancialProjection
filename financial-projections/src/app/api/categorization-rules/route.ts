@@ -65,7 +65,7 @@ export const { POST } = defineRoute({
   operationId: 'createCategorizationRule',
   method: 'POST',
   summary: 'Create a new categorization rule',
-  description: 'Create a new categorization rule with description string, match type, and spending type associations',
+  description: 'Create a new categorization rule with description string, match type, and spending type associations. Rules are auto-applied during CSV import. Exact match (case-insensitive) takes priority over partial/contains match. Multiple matching rules stack their spending types.',
   tags: ['Categorization Rules'],
   requestBody: CreateCategorizationRuleRequestSchema,
   action: async ({ body }) => {

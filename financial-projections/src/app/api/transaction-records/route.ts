@@ -52,7 +52,7 @@ export const { GET } = defineRoute({
   operationId: 'getTransactionRecords',
   method: 'GET',
   summary: 'Get transaction records',
-  description: 'Get transaction records for a bank account with optional date filtering, description search, spending type filtering, amount filtering, and pagination',
+  description: 'Get transaction records for a bank account with optional date filtering, description search, spending type filtering, amount filtering, and pagination. Amount filter compares absolute value (magnitude) so greaterThan 100 matches both debits and credits over 100. Supports TOON compact response format (60-70% fewer tokens).',
   tags: ['Transaction Records'],
   queryParams: z.object({
     bankAccountId: z.string().optional(),

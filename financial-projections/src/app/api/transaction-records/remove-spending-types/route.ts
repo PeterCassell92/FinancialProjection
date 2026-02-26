@@ -37,7 +37,7 @@ export const { POST } = defineRoute({
   operationId: 'removeSpendingTypesFromTransactions',
   method: 'POST',
   summary: 'Remove spending types from transactions',
-  description: 'Remove specific spending types from transactions matching a description pattern within a bank account',
+  description: 'Remove specific spending types from transactions matching a description pattern within a bank account. Only removes the specified spending types — other tags on those transactions are preserved. Supports optional date range filtering and exact/partial matching.',
   tags: ['Transaction Records'],
   requestBody: removeSpendingTypesSchema,
   action: async ({ body }) => {
