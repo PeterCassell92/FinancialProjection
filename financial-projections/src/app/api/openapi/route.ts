@@ -1,5 +1,7 @@
 import generateOpenApiSpec from '@omer-x/next-openapi-json-generator';
+import { cleanSchemas } from '@/lib/openapi-utils';
 import {
+  // Bank Accounts
   BankAccountDataSchema,
   BankAccountsGetResponseSchema,
   BankAccountCreateRequestSchema,
@@ -8,8 +10,76 @@ import {
   BankAccountUpdateRequestSchema,
   BankAccountUpdateResponseSchema,
   BankAccountDeleteResponseSchema,
+  // Settings
+  SettingsGetResponseSchema,
+  SettingsPutRequestSchema,
+  SettingsPutResponseSchema,
+  SettingsPatchRequestSchema,
+  SettingsPatchResponseSchema,
+  // Spending Types
+  SpendingTypesGetResponseSchema,
+  SpendingTypeCreateRequestSchema,
+  SpendingTypeCreateResponseSchema,
+  SpendingTypeGetResponseSchema,
+  SpendingTypeUpdateRequestSchema,
+  SpendingTypeUpdateResponseSchema,
+  SpendingTypeDeleteResponseSchema,
+  // Decision Paths
+  DecisionPathsGetResponseSchema,
+  DecisionPathCreateRequestSchema,
+  DecisionPathCreateResponseSchema,
+  DecisionPathGetResponseSchema,
+  DecisionPathUpdateRequestSchema,
+  DecisionPathUpdateResponseSchema,
+  DecisionPathDeleteResponseSchema,
+  // Daily Balance
+  DailyBalancesGetResponseSchema,
+  DailyBalanceSetActualRequestSchema,
+  DailyBalanceSetActualResponseSchema,
+  DailyBalanceClearActualResponseSchema,
+  // Calculate & Compute Balances
+  CalculateBalancesRequestSchema,
+  CalculateBalancesResponseSchema,
+  ComputeBalancesRequestSchema,
+  ComputeBalancesResponseSchema,
+  // Projection Events
+  ProjectionEventsGetResponseSchema,
+  ProjectionEventCreateRequestSchema,
+  ProjectionEventCreateResponseSchema,
+  ProjectionEventGetResponseSchema,
+  ProjectionEventUpdateRequestSchema,
+  ProjectionEventPutResponseSchema,
+  ProjectionEventDeleteResponseSchema,
+  // Recurring Event Rules
+  RecurringEventRulesGetResponseSchema,
+  RecurringEventRuleCreateRequestSchema,
+  RecurringEventRuleCreateResponseSchema,
+  RecurringEventRuleGetResponseSchema,
+  RecurringEventRuleUpdateRequestSchema,
+  RecurringEventRuleUpdateResponseSchema,
+  RecurringEventRuleDeleteResponseSchema,
+  RecurringEventRuleRevisionCreateRequestSchema,
+  RecurringEventRuleRevisionCreateResponseSchema,
+  // Scenario Sets
+  ScenarioSetsGetResponseSchema,
+  ScenarioSetCreateRequestSchema,
+  ScenarioSetCreateResponseSchema,
+  ScenarioSetGetResponseSchema,
+  ScenarioSetUpdateRequestSchema,
+  ScenarioSetUpdateResponseSchema,
+  ScenarioSetDeleteResponseSchema,
+  // Transaction Records
+  TransactionRecordsGetResponseSchema,
+  TransactionRecordUpdateRequestSchema,
+  TransactionRecordUpdateResponseSchema,
+  TransactionRecordDeleteResponseSchema,
+  TransactionRecordsBulkDeleteResponseSchema,
+  CsvValidityCheckResponseSchema,
+  CsvUploadResponseSchema,
+  DateOverlapCheckResponseSchema,
+  // Transaction Coverage
+  TransactionCoverageResponseSchema,
 } from '@/lib/schemas';
-import { cleanSchemas } from '@/lib/openapi-utils';
 
 /**
  * GET /api/openapi
@@ -24,14 +94,84 @@ export async function GET() {
     // Keys MUST match the exact variable names used in route files.
     // The generator strips imports and replaces these names with $ref strings.
     cleanSchemas({
+      // Bank Accounts
       BankAccountDataSchema,
       BankAccountsGetResponseSchema,
-      BankAccountGetResponseSchema,
       BankAccountCreateRequestSchema,
       BankAccountCreateResponseSchema,
+      BankAccountGetResponseSchema,
       BankAccountUpdateRequestSchema,
       BankAccountUpdateResponseSchema,
       BankAccountDeleteResponseSchema,
+      // Settings
+      SettingsGetResponseSchema,
+      SettingsPutRequestSchema,
+      SettingsPutResponseSchema,
+      SettingsPatchRequestSchema,
+      SettingsPatchResponseSchema,
+      // Spending Types
+      SpendingTypesGetResponseSchema,
+      SpendingTypeCreateRequestSchema,
+      SpendingTypeCreateResponseSchema,
+      SpendingTypeGetResponseSchema,
+      SpendingTypeUpdateRequestSchema,
+      SpendingTypeUpdateResponseSchema,
+      SpendingTypeDeleteResponseSchema,
+      // Decision Paths
+      DecisionPathsGetResponseSchema,
+      DecisionPathCreateRequestSchema,
+      DecisionPathCreateResponseSchema,
+      DecisionPathGetResponseSchema,
+      DecisionPathUpdateRequestSchema,
+      DecisionPathUpdateResponseSchema,
+      DecisionPathDeleteResponseSchema,
+      // Daily Balance
+      DailyBalancesGetResponseSchema,
+      DailyBalanceSetActualRequestSchema,
+      DailyBalanceSetActualResponseSchema,
+      DailyBalanceClearActualResponseSchema,
+      // Calculate & Compute Balances
+      CalculateBalancesRequestSchema,
+      CalculateBalancesResponseSchema,
+      ComputeBalancesRequestSchema,
+      ComputeBalancesResponseSchema,
+      // Projection Events
+      ProjectionEventsGetResponseSchema,
+      ProjectionEventCreateRequestSchema,
+      ProjectionEventCreateResponseSchema,
+      ProjectionEventGetResponseSchema,
+      ProjectionEventUpdateRequestSchema,
+      ProjectionEventPutResponseSchema,
+      ProjectionEventDeleteResponseSchema,
+      // Recurring Event Rules
+      RecurringEventRulesGetResponseSchema,
+      RecurringEventRuleCreateRequestSchema,
+      RecurringEventRuleCreateResponseSchema,
+      RecurringEventRuleGetResponseSchema,
+      RecurringEventRuleUpdateRequestSchema,
+      RecurringEventRuleUpdateResponseSchema,
+      RecurringEventRuleDeleteResponseSchema,
+      RecurringEventRuleRevisionCreateRequestSchema,
+      RecurringEventRuleRevisionCreateResponseSchema,
+      // Scenario Sets
+      ScenarioSetsGetResponseSchema,
+      ScenarioSetCreateRequestSchema,
+      ScenarioSetCreateResponseSchema,
+      ScenarioSetGetResponseSchema,
+      ScenarioSetUpdateRequestSchema,
+      ScenarioSetUpdateResponseSchema,
+      ScenarioSetDeleteResponseSchema,
+      // Transaction Records
+      TransactionRecordsGetResponseSchema,
+      TransactionRecordUpdateRequestSchema,
+      TransactionRecordUpdateResponseSchema,
+      TransactionRecordDeleteResponseSchema,
+      TransactionRecordsBulkDeleteResponseSchema,
+      CsvValidityCheckResponseSchema,
+      CsvUploadResponseSchema,
+      DateOverlapCheckResponseSchema,
+      // Transaction Coverage
+      TransactionCoverageResponseSchema,
     }),
     {
       info: {

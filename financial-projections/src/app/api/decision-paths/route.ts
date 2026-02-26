@@ -1,100 +1,106 @@
-import { NextRequest, NextResponse } from 'next/server';
+import defineRoute from '@omer-x/next-openapi-route-handler';
+import { z } from 'zod';
 import {
   getAllDecisionPaths,
   createDecisionPath,
   getDecisionPathsWithUsage,
 } from '@/lib/dal/decision-paths';
 import {
-  DecisionPathsGetResponse,
+  DecisionPathsGetResponseSchema,
   DecisionPathCreateRequestSchema,
-  DecisionPathCreateResponse,
+  DecisionPathCreateResponseSchema,
 } from '@/lib/schemas';
 
 /**
  * GET /api/decision-paths
  * Get all decision paths with optional usage statistics
  */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const includeUsage = searchParams.get('includeUsage') === 'true';
+export const { GET } = defineRoute({
+  operationId: 'getDecisionPaths',
+  method: 'GET',
+  summary: 'Get all decision paths',
+  description: 'Get all decision paths with optional usage statistics',
+  tags: ['Decision Paths'],
+  queryParams: z.object({
+    includeUsage: z.string().optional(),
+  }),
+  action: async ({ queryParams }) => {
+    try {
+      const includeUsage = queryParams?.includeUsage === 'true';
 
-    let decisionPaths;
-    if (includeUsage) {
-      decisionPaths = await getDecisionPathsWithUsage();
-    } else {
-      decisionPaths = await getAllDecisionPaths();
+      let decisionPaths;
+      if (includeUsage) {
+        decisionPaths = await getDecisionPathsWithUsage();
+      } else {
+        decisionPaths = await getAllDecisionPaths();
+      }
+
+      const serializedData = decisionPaths.map(dp => ({
+        id: dp.id,
+        name: dp.name,
+        description: dp.description,
+        createdAt: dp.createdAt.toISOString(),
+      }));
+
+      return Response.json({ success: true, data: serializedData });
+    } catch (error) {
+      console.error('Error fetching decision paths:', error);
+      return Response.json(
+        { success: false, error: 'Failed to fetch decision paths' },
+        { status: 500 }
+      );
     }
-
-    // Serialize the data
-    const serializedData = decisionPaths.map(dp => ({
-      id: dp.id,
-      name: dp.name,
-      description: dp.description,
-      createdAt: dp.createdAt.toISOString(),
-    }));
-
-    const response: DecisionPathsGetResponse = {
-      success: true,
-      data: serializedData,
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error('Error fetching decision paths:', error);
-    const response: DecisionPathsGetResponse = {
-      success: false,
-      error: 'Failed to fetch decision paths',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'List of decision paths retrieved successfully',
+      content: DecisionPathsGetResponseSchema,
+    },
+    500: { description: 'Server error' },
+  },
+});
 
 /**
  * POST /api/decision-paths
  * Create a new decision path
  */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+export const { POST } = defineRoute({
+  operationId: 'createDecisionPath',
+  method: 'POST',
+  summary: 'Create a new decision path',
+  description: 'Create a new decision path with name and optional description',
+  tags: ['Decision Paths'],
+  requestBody: DecisionPathCreateRequestSchema,
+  action: async ({ body }) => {
+    try {
+      const decisionPath = await createDecisionPath(body.name, body.description);
 
-    // Validate request body with Zod
-    const validation = DecisionPathCreateRequestSchema.safeParse(body);
-    if (!validation.success) {
-      const response: DecisionPathCreateResponse = {
-        success: false,
-        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
+      const serializedData = {
+        id: decisionPath.id,
+        name: decisionPath.name,
+        description: decisionPath.description,
+        createdAt: decisionPath.createdAt.toISOString(),
       };
-      return NextResponse.json(response, { status: 400 });
+
+      return Response.json({
+        success: true,
+        data: serializedData,
+        message: 'Decision path created successfully',
+      });
+    } catch (error) {
+      console.error('Error creating decision path:', error);
+      return Response.json(
+        { success: false, error: 'Failed to create decision path' },
+        { status: 500 }
+      );
     }
-
-    const validatedData = validation.data;
-    const decisionPath = await createDecisionPath(
-      validatedData.name,
-      validatedData.description
-    );
-
-    // Serialize the response
-    const serializedData = {
-      id: decisionPath.id,
-      name: decisionPath.name,
-      description: decisionPath.description,
-      createdAt: decisionPath.createdAt.toISOString(),
-    };
-
-    const response: DecisionPathCreateResponse = {
-      success: true,
-      data: serializedData,
-      message: 'Decision path created successfully',
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error('Error creating decision path:', error);
-    const response: DecisionPathCreateResponse = {
-      success: false,
-      error: 'Failed to create decision path',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'Decision path created successfully',
+      content: DecisionPathCreateResponseSchema,
+    },
+    400: { description: 'Invalid request body' },
+    500: { description: 'Server error' },
+  },
+});

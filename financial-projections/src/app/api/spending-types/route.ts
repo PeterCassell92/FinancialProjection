@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import defineRoute from '@omer-x/next-openapi-route-handler';
+import { z } from 'zod';
 import {
   getAllSpendingTypes,
   getSpendingTypesWithCounts,
@@ -6,113 +7,119 @@ import {
   CreateSpendingTypeInput,
 } from '@/lib/dal/spending-types';
 import {
-  SpendingTypesGetResponse,
+  SpendingTypesGetResponseSchema,
   SpendingTypeCreateRequestSchema,
-  SpendingTypeCreateResponse,
+  SpendingTypeCreateResponseSchema,
 } from '@/lib/schemas';
 
 /**
  * GET /api/spending-types
  * Get all spending types, optionally with usage counts
  */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const includeCounts = searchParams.get('includeCounts') === 'true';
+export const { GET } = defineRoute({
+  operationId: 'getSpendingTypes',
+  method: 'GET',
+  summary: 'Get all spending types',
+  description: 'Get all spending types, optionally with usage counts',
+  tags: ['Spending Types'],
+  queryParams: z.object({
+    includeCounts: z.string().optional(),
+  }),
+  action: async ({ queryParams }) => {
+    try {
+      const includeCounts = queryParams?.includeCounts === 'true';
 
-    let spendingTypes;
-    if (includeCounts) {
-      spendingTypes = await getSpendingTypesWithCounts();
-    } else {
-      spendingTypes = await getAllSpendingTypes();
+      let spendingTypes;
+      if (includeCounts) {
+        spendingTypes = await getSpendingTypesWithCounts();
+      } else {
+        spendingTypes = await getAllSpendingTypes();
+      }
+
+      const serializedData = spendingTypes.map(st => ({
+        id: st.id,
+        name: st.name,
+        description: st.description,
+        color: st.color,
+        createdAt: st.createdAt.toISOString(),
+        updatedAt: st.updatedAt.toISOString(),
+      }));
+
+      return Response.json({ success: true, data: serializedData });
+    } catch (error) {
+      console.error('Error fetching spending types:', error);
+      return Response.json(
+        { success: false, error: 'Failed to fetch spending types' },
+        { status: 500 }
+      );
     }
-
-    // Serialize the data
-    const serializedData = spendingTypes.map(st => ({
-      id: st.id,
-      name: st.name,
-      description: st.description,
-      color: st.color,
-      createdAt: st.createdAt.toISOString(),
-      updatedAt: st.updatedAt.toISOString(),
-    }));
-
-    const response: SpendingTypesGetResponse = {
-      success: true,
-      data: serializedData,
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error('Error fetching spending types:', error);
-    const response: SpendingTypesGetResponse = {
-      success: false,
-      error: 'Failed to fetch spending types',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'List of spending types retrieved successfully',
+      content: SpendingTypesGetResponseSchema,
+    },
+    500: { description: 'Server error' },
+  },
+});
 
 /**
  * POST /api/spending-types
  * Create a new spending type
  */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-
-    // Validate request body with Zod
-    const validation = SpendingTypeCreateRequestSchema.safeParse(body);
-    if (!validation.success) {
-      const response: SpendingTypeCreateResponse = {
-        success: false,
-        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
+export const { POST } = defineRoute({
+  operationId: 'createSpendingType',
+  method: 'POST',
+  summary: 'Create a new spending type',
+  description: 'Create a new spending type with name, description, and color',
+  tags: ['Spending Types'],
+  requestBody: SpendingTypeCreateRequestSchema,
+  action: async ({ body }) => {
+    try {
+      const input: CreateSpendingTypeInput = {
+        name: body.name,
+        description: body.description,
+        color: body.color,
       };
-      return NextResponse.json(response, { status: 400 });
-    }
 
-    const validatedData = validation.data;
-    const input: CreateSpendingTypeInput = {
-      name: validatedData.name,
-      description: validatedData.description,
-      color: validatedData.color,
-    };
+      const spendingType = await createSpendingType(input);
 
-    const spendingType = await createSpendingType(input);
-
-    // Serialize the response
-    const serializedData = {
-      id: spendingType.id,
-      name: spendingType.name,
-      description: spendingType.description,
-      color: spendingType.color,
-      createdAt: spendingType.createdAt.toISOString(),
-      updatedAt: spendingType.updatedAt.toISOString(),
-    };
-
-    const response: SpendingTypeCreateResponse = {
-      success: true,
-      data: serializedData,
-      message: 'Spending type created successfully',
-    };
-
-    return NextResponse.json(response, { status: 201 });
-  } catch (error: any) {
-    console.error('Error creating spending type:', error);
-
-    // Check for unique constraint violation
-    if (error.code === 'P2002') {
-      const response: SpendingTypeCreateResponse = {
-        success: false,
-        error: 'Spending type with this name already exists',
+      const serializedData = {
+        id: spendingType.id,
+        name: spendingType.name,
+        description: spendingType.description,
+        color: spendingType.color,
+        createdAt: spendingType.createdAt.toISOString(),
+        updatedAt: spendingType.updatedAt.toISOString(),
       };
-      return NextResponse.json(response, { status: 409 });
-    }
 
-    const response: SpendingTypeCreateResponse = {
-      success: false,
-      error: 'Failed to create spending type',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+      return Response.json(
+        { success: true, data: serializedData, message: 'Spending type created successfully' },
+        { status: 201 }
+      );
+    } catch (error: unknown) {
+      console.error('Error creating spending type:', error);
+
+      if (error instanceof Object && 'code' in error && error.code === 'P2002') {
+        return Response.json(
+          { success: false, error: 'Spending type with this name already exists' },
+          { status: 409 }
+        );
+      }
+
+      return Response.json(
+        { success: false, error: 'Failed to create spending type' },
+        { status: 500 }
+      );
+    }
+  },
+  responses: {
+    201: {
+      description: 'Spending type created successfully',
+      content: SpendingTypeCreateResponseSchema,
+    },
+    400: { description: 'Invalid request body' },
+    409: { description: 'Spending type with this name already exists' },
+    500: { description: 'Server error' },
+  },
+});

@@ -1,142 +1,155 @@
-import { NextRequest, NextResponse } from 'next/server';
+import defineRoute from '@omer-x/next-openapi-route-handler';
+import { z } from 'zod';
 import {
   getDecisionPathById,
   updateDecisionPath,
   deleteDecisionPath,
 } from '@/lib/dal/decision-paths';
 import {
-  DecisionPathGetResponse,
+  DecisionPathGetResponseSchema,
   DecisionPathUpdateRequestSchema,
-  DecisionPathUpdateResponse,
-  DecisionPathDeleteResponse,
+  DecisionPathUpdateResponseSchema,
+  DecisionPathDeleteResponseSchema,
 } from '@/lib/schemas';
+
+const pathParams = z.object({ id: z.string() });
 
 /**
  * GET /api/decision-paths/[id]
  * Get a specific decision path by ID
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const decisionPath = await getDecisionPathById(id);
+export const { GET } = defineRoute({
+  operationId: 'getDecisionPathById',
+  method: 'GET',
+  summary: 'Get a decision path by ID',
+  description: 'Get a specific decision path by its ID',
+  tags: ['Decision Paths'],
+  pathParams,
+  action: async ({ pathParams: { id } }) => {
+    try {
+      const decisionPath = await getDecisionPathById(id);
 
-    if (!decisionPath) {
-      const response: DecisionPathGetResponse = {
-        success: false,
-        error: 'Decision path not found',
+      if (!decisionPath) {
+        return Response.json(
+          { success: false, error: 'Decision path not found' },
+          { status: 404 }
+        );
+      }
+
+      const serializedData = {
+        id: decisionPath.id,
+        name: decisionPath.name,
+        description: decisionPath.description,
+        createdAt: decisionPath.createdAt.toISOString(),
       };
-      return NextResponse.json(response, { status: 404 });
+
+      return Response.json({ success: true, data: serializedData });
+    } catch (error) {
+      console.error('Error fetching decision path:', error);
+      return Response.json(
+        { success: false, error: 'Failed to fetch decision path' },
+        { status: 500 }
+      );
     }
-
-    // Serialize the data
-    const serializedData = {
-      id: decisionPath.id,
-      name: decisionPath.name,
-      description: decisionPath.description,
-      createdAt: decisionPath.createdAt.toISOString(),
-    };
-
-    const response: DecisionPathGetResponse = {
-      success: true,
-      data: serializedData,
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error('Error fetching decision path:', error);
-    const response: DecisionPathGetResponse = {
-      success: false,
-      error: 'Failed to fetch decision path',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'Decision path retrieved successfully',
+      content: DecisionPathGetResponseSchema,
+    },
+    404: { description: 'Decision path not found' },
+    500: { description: 'Server error' },
+  },
+});
 
 /**
  * PATCH /api/decision-paths/[id]
  * Update a decision path
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
+export const { PATCH } = defineRoute({
+  operationId: 'updateDecisionPath',
+  method: 'PATCH',
+  summary: 'Update a decision path',
+  description: 'Update a decision path by its ID',
+  tags: ['Decision Paths'],
+  pathParams,
+  requestBody: DecisionPathUpdateRequestSchema,
+  action: async ({ pathParams: { id }, body }) => {
+    try {
+      const updates: { name?: string; description?: string } = {};
+      if (body.name !== undefined) {
+        updates.name = body.name;
+      }
+      if (body.description !== undefined) {
+        updates.description = body.description ?? undefined;
+      }
 
-    // Validate request body with Zod
-    const validation = DecisionPathUpdateRequestSchema.safeParse(body);
-    if (!validation.success) {
-      const response: DecisionPathUpdateResponse = {
-        success: false,
-        error: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
+      const decisionPath = await updateDecisionPath(id, updates);
+
+      const serializedData = {
+        id: decisionPath.id,
+        name: decisionPath.name,
+        description: decisionPath.description,
+        createdAt: decisionPath.createdAt.toISOString(),
       };
-      return NextResponse.json(response, { status: 400 });
+
+      return Response.json({
+        success: true,
+        data: serializedData,
+        message: 'Decision path updated successfully',
+      });
+    } catch (error) {
+      console.error('Error updating decision path:', error);
+      return Response.json(
+        { success: false, error: 'Failed to update decision path' },
+        { status: 500 }
+      );
     }
-
-    const validatedData = validation.data;
-    const updates: { name?: string; description?: string } = {};
-    if (validatedData.name !== undefined) {
-      updates.name = validatedData.name;
-    }
-    if (validatedData.description !== undefined) {
-      updates.description = validatedData.description ?? undefined;
-    }
-
-    const decisionPath = await updateDecisionPath(id, updates);
-
-    // Serialize the response
-    const serializedData = {
-      id: decisionPath.id,
-      name: decisionPath.name,
-      description: decisionPath.description,
-      createdAt: decisionPath.createdAt.toISOString(),
-    };
-
-    const response: DecisionPathUpdateResponse = {
-      success: true,
-      data: serializedData,
-      message: 'Decision path updated successfully',
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error('Error updating decision path:', error);
-    const response: DecisionPathUpdateResponse = {
-      success: false,
-      error: 'Failed to update decision path',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'Decision path updated successfully',
+      content: DecisionPathUpdateResponseSchema,
+    },
+    400: { description: 'Invalid request body' },
+    404: { description: 'Decision path not found' },
+    500: { description: 'Server error' },
+  },
+});
 
 /**
  * DELETE /api/decision-paths/[id]
  * Delete a decision path
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    await deleteDecisionPath(id);
+export const { DELETE } = defineRoute({
+  operationId: 'deleteDecisionPath',
+  method: 'DELETE',
+  summary: 'Delete a decision path',
+  description: 'Delete a decision path by its ID',
+  tags: ['Decision Paths'],
+  pathParams,
+  action: async ({ pathParams: { id } }) => {
+    try {
+      await deleteDecisionPath(id);
 
-    const response: DecisionPathDeleteResponse = {
-      success: true,
-      message: 'Decision path deleted successfully',
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error('Error deleting decision path:', error);
-    const response: DecisionPathDeleteResponse = {
-      success: false,
-      error: 'Failed to delete decision path',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+      return Response.json({
+        success: true,
+        message: 'Decision path deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting decision path:', error);
+      return Response.json(
+        { success: false, error: 'Failed to delete decision path' },
+        { status: 500 }
+      );
+    }
+  },
+  responses: {
+    200: {
+      description: 'Decision path deleted successfully',
+      content: DecisionPathDeleteResponseSchema,
+    },
+    404: { description: 'Decision path not found' },
+    500: { description: 'Server error' },
+  },
+});

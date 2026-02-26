@@ -3,6 +3,9 @@
  * Each schema file contains request/response schemas and inferred TypeScript types
  */
 
+// Shared
+export * from './shared';
+
 // Settings
 export * from './settings';
 

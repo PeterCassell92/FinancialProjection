@@ -1,40 +1,60 @@
-import { NextRequest, NextResponse } from 'next/server';
+import defineRoute from '@omer-x/next-openapi-route-handler';
+import { z } from 'zod';
 import { deleteAllTransactionRecords } from '@/lib/dal/transaction-records';
-import { ApiResponse } from '@/types';
+import { TransactionRecordsBulkDeleteResponseSchema } from '@/lib/schemas';
 
 /**
  * DELETE /api/transaction-records/bulk-delete
  * Delete all transaction records for a bank account
  */
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const bankAccountId = searchParams.get('bankAccountId');
+export const { DELETE } = defineRoute({
+  operationId: 'bulkDeleteTransactionRecords',
+  method: 'DELETE',
+  summary: 'Bulk delete transaction records',
+  description: 'Delete all transaction records for a specified bank account',
+  tags: ['Transaction Records'],
+  queryParams: z.object({
+    bankAccountId: z.string(),
+  }),
+  action: async ({ queryParams }) => {
+    try {
+      const bankAccountId = queryParams?.bankAccountId;
 
-    if (!bankAccountId) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Bank account ID is required',
-      };
-      return NextResponse.json(response, { status: 400 });
+      if (!bankAccountId) {
+        return Response.json(
+          {
+            success: false,
+            error: 'Bank account ID is required',
+          },
+          { status: 400 }
+        );
+      }
+
+      const deletedCount = await deleteAllTransactionRecords(bankAccountId);
+
+      return Response.json({
+        success: true,
+        message: `Successfully deleted ${deletedCount} transaction record(s)`,
+        data: { deletedCount },
+      });
+    } catch (error: unknown) {
+      console.error('Error deleting all transaction records:', error);
+
+      return Response.json(
+        {
+          success: false,
+          error: 'Failed to delete transaction records',
+        },
+        { status: 500 }
+      );
     }
-
-    const deletedCount = await deleteAllTransactionRecords(bankAccountId);
-
-    const response: ApiResponse<{ deletedCount: number }> = {
-      success: true,
-      message: `Successfully deleted ${deletedCount} transaction record(s)`,
-      data: { deletedCount },
-    };
-
-    return NextResponse.json(response);
-  } catch (error: any) {
-    console.error('Error deleting all transaction records:', error);
-
-    const response: ApiResponse = {
-      success: false,
-      error: 'Failed to delete transaction records',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'Transaction records deleted successfully',
+      content: TransactionRecordsBulkDeleteResponseSchema,
+    },
+    400: { description: 'Missing bank account ID' },
+    500: { description: 'Server error' },
+  },
+});

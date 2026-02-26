@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import defineRoute from '@omer-x/next-openapi-route-handler';
+import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import {
   getTransactionRecords,
@@ -8,12 +9,16 @@ import {
   UpdateTransactionRecordInput,
   TransactionRecordWithSpendingTypes,
 } from '@/lib/dal/transaction-records';
-import { ApiResponse } from '@/types';
+import {
+  TransactionRecordsGetResponseSchema,
+  TransactionRecordUpdateRequestSchema,
+  TransactionRecordUpdateResponseSchema,
+  TransactionRecordDeleteResponseSchema,
+} from '@/lib/schemas';
 import { formatTransactionsAsTOON } from '@/lib/formatters/toon';
 
 /**
  * Serialized transaction record with Decimal fields converted to numbers
- * This replaces Prisma.Decimal types with number for JSON serialization
  */
 type SerializedTransactionRecord = Omit<TransactionRecordWithSpendingTypes, 'debitAmount' | 'creditAmount' | 'balance'> & {
   debitAmount: number | null;
@@ -22,23 +27,9 @@ type SerializedTransactionRecord = Omit<TransactionRecordWithSpendingTypes, 'deb
 };
 
 /**
- * Response data for transaction records with optional pagination
- */
-interface TransactionRecordsResponseData {
-  transactions: SerializedTransactionRecord[];
-  pagination?: {
-    page: number;
-    pageSize: number;
-    totalRecords: number;
-    totalPages: number;
-  };
-}
-
-/**
  * Convert a TransactionRecordWithSpendingTypes to a serialized version
  */
 function serializeTransactionRecord(transaction: TransactionRecordWithSpendingTypes): SerializedTransactionRecord {
-  // Access Decimal fields that TypeScript doesn't infer from the extended interface
   const record = transaction as TransactionRecordWithSpendingTypes & {
     debitAmount: { toString(): string } | null;
     creditAmount: { toString(): string } | null;
@@ -55,262 +46,262 @@ function serializeTransactionRecord(transaction: TransactionRecordWithSpendingTy
 
 /**
  * GET /api/transaction-records
- * Get transaction records for a bank account with optional date filtering, description search, spending type filtering, amount filtering, and pagination
- *
- * Query parameters:
- * - bankAccountId (required): Bank account ID
- * - startDate (optional): ISO date string for start of date range
- * - endDate (optional): ISO date string for end of date range
- * - description (optional): Partial match search on transaction description (case-insensitive)
- * - spendingTypeIds (optional): Comma-separated list of spending type IDs to filter by
- * - spendingTypeNames (optional): Comma-separated list of spending type names to filter by
- * - amountOperator (optional): Amount comparison operator - 'lessThan' or 'greaterThan'
- * - amountValue (optional): Amount value to compare against (magnitude)
- * - page (optional): Page number (1-indexed, default: no pagination)
- * - pageSize (optional): Number of records per page (default: no pagination)
- * - format (optional): Response format - 'json' (default) or 'toon' (compact format for AI)
+ * Get transaction records for a bank account with optional filtering and pagination
  */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const bankAccountId = searchParams.get('bankAccountId');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    const description = searchParams.get('description');
-    const spendingTypeIdsParam = searchParams.get('spendingTypeIds');
-    const spendingTypeNamesParam = searchParams.get('spendingTypeNames');
-    const amountOperatorParam = searchParams.get('amountOperator');
-    const amountValueParam = searchParams.get('amountValue');
-    const pageParam = searchParams.get('page');
-    const pageSizeParam = searchParams.get('pageSize');
-    const responseFormat = searchParams.get('responseFormat') || 'json';
+export const { GET } = defineRoute({
+  operationId: 'getTransactionRecords',
+  method: 'GET',
+  summary: 'Get transaction records',
+  description: 'Get transaction records for a bank account with optional date filtering, description search, spending type filtering, amount filtering, and pagination',
+  tags: ['Transaction Records'],
+  queryParams: z.object({
+    bankAccountId: z.string().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    description: z.string().optional(),
+    spendingTypeIds: z.string().optional(),
+    spendingTypeNames: z.string().optional(),
+    amountOperator: z.string().optional(),
+    amountValue: z.string().optional(),
+    page: z.string().optional(),
+    pageSize: z.string().optional(),
+    responseFormat: z.enum(['json', 'toon']).optional(),
+  }),
+  action: async ({ queryParams }) => {
+    try {
+      const bankAccountId = queryParams?.bankAccountId;
+      const startDate = queryParams?.startDate;
+      const endDate = queryParams?.endDate;
+      const description = queryParams?.description;
+      const spendingTypeIdsParam = queryParams?.spendingTypeIds;
+      const spendingTypeNamesParam = queryParams?.spendingTypeNames;
+      const amountOperatorParam = queryParams?.amountOperator;
+      const amountValueParam = queryParams?.amountValue;
+      const pageParam = queryParams?.page;
+      const pageSizeParam = queryParams?.pageSize;
+      const responseFormat = queryParams?.responseFormat || 'json';
 
-    if (!bankAccountId) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'bankAccountId query parameter is required',
+      if (!bankAccountId) {
+        return Response.json(
+          { success: false, error: 'bankAccountId query parameter is required' },
+          { status: 400 }
+        );
+      }
+
+      const startDateObj = startDate ? new Date(startDate) : undefined;
+      const endDateObj = endDate ? new Date(endDate) : undefined;
+      const spendingTypeIds = spendingTypeIdsParam ? spendingTypeIdsParam.split(',').map(id => id.trim()) : undefined;
+      const spendingTypeNames = spendingTypeNamesParam ? spendingTypeNamesParam.split(',').map(name => name.trim()) : undefined;
+      const amountOperator = (amountOperatorParam === 'lessThan' || amountOperatorParam === 'greaterThan') ? amountOperatorParam : undefined;
+      const amountValue = amountValueParam ? parseFloat(amountValueParam) : undefined;
+      const page = pageParam ? parseInt(pageParam, 10) : undefined;
+      const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : undefined;
+
+      if (page !== undefined && page < 1) {
+        return Response.json(
+          { success: false, error: 'page must be >= 1' },
+          { status: 400 }
+        );
+      }
+
+      if (pageSize !== undefined && pageSize < 1) {
+        return Response.json(
+          { success: false, error: 'pageSize must be >= 1' },
+          { status: 400 }
+        );
+      }
+
+      const [transactions, totalCount] = await Promise.all([
+        getTransactionRecords(
+          bankAccountId,
+          startDateObj,
+          endDateObj,
+          page,
+          pageSize,
+          description || undefined,
+          spendingTypeIds,
+          spendingTypeNames,
+          amountOperator,
+          amountValue
+        ),
+        page && pageSize
+          ? getTransactionRecordsCount(
+              bankAccountId,
+              startDateObj,
+              endDateObj,
+              description || undefined,
+              spendingTypeIds,
+              spendingTypeNames,
+              amountOperator,
+              amountValue
+            )
+          : Promise.resolve(undefined),
+      ]);
+
+      const serializedTransactions = transactions.map(serializeTransactionRecord);
+
+      const paginationMetadata =
+        page && pageSize && totalCount !== undefined
+          ? {
+              page,
+              pageSize,
+              totalRecords: totalCount,
+              totalPages: Math.ceil(totalCount / pageSize),
+            }
+          : undefined;
+
+      // Return TOON format if requested
+      if (responseFormat === 'toon') {
+        const toonData = formatTransactionsAsTOON(serializedTransactions, paginationMetadata);
+        return Response.json({ success: true, data: toonData });
+      }
+
+      // Default JSON format
+      const responseData: { transactions: SerializedTransactionRecord[]; pagination?: typeof paginationMetadata } = {
+        transactions: serializedTransactions,
       };
-      return NextResponse.json(response, { status: 400 });
+
+      if (paginationMetadata) {
+        responseData.pagination = paginationMetadata;
+      }
+
+      return Response.json({ success: true, data: responseData });
+    } catch (error: unknown) {
+      console.error('Error fetching transaction records:', error);
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : 'Failed to fetch transaction records' },
+        { status: 500 }
+      );
     }
-
-    const startDateObj = startDate ? new Date(startDate) : undefined;
-    const endDateObj = endDate ? new Date(endDate) : undefined;
-    const spendingTypeIds = spendingTypeIdsParam ? spendingTypeIdsParam.split(',').map(id => id.trim()) : undefined;
-    const spendingTypeNames = spendingTypeNamesParam ? spendingTypeNamesParam.split(',').map(name => name.trim()) : undefined;
-    const amountOperator = (amountOperatorParam === 'lessThan' || amountOperatorParam === 'greaterThan') ? amountOperatorParam : undefined;
-    const amountValue = amountValueParam ? parseFloat(amountValueParam) : undefined;
-    const page = pageParam ? parseInt(pageParam, 10) : undefined;
-    const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : undefined;
-
-    // Validate pagination parameters
-    if (page !== undefined && page < 1) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'page must be >= 1',
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
-    if (pageSize !== undefined && pageSize < 1) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'pageSize must be >= 1',
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
-    // Fetch transactions and total count in parallel
-    const [transactions, totalCount] = await Promise.all([
-      getTransactionRecords(
-        bankAccountId,
-        startDateObj,
-        endDateObj,
-        page,
-        pageSize,
-        description || undefined,
-        spendingTypeIds,
-        spendingTypeNames,
-        amountOperator,
-        amountValue
-      ),
-      page && pageSize
-        ? getTransactionRecordsCount(
-            bankAccountId,
-            startDateObj,
-            endDateObj,
-            description || undefined,
-            spendingTypeIds,
-            spendingTypeNames,
-            amountOperator,
-            amountValue
-          )
-        : Promise.resolve(undefined),
-    ]);
-
-    // Convert Decimal fields to numbers for JSON serialization
-    const serializedTransactions: SerializedTransactionRecord[] = transactions.map(serializeTransactionRecord);
-
-    // Build pagination metadata if applicable
-    const paginationMetadata =
-      page && pageSize && totalCount !== undefined
-        ? {
-            page,
-            pageSize,
-            totalRecords: totalCount,
-            totalPages: Math.ceil(totalCount / pageSize),
-          }
-        : undefined;
-
-    // Return TOON format if requested
-    if (responseFormat === 'toon') {
-      const toonData = formatTransactionsAsTOON(serializedTransactions, paginationMetadata);
-      const response: ApiResponse<string> = {
-        success: true,
-        data: toonData,
-      };
-      return NextResponse.json(response);
-    }
-
-    // Default JSON format
-    const responseData: TransactionRecordsResponseData = {
-      transactions: serializedTransactions,
-    };
-
-    if (paginationMetadata) {
-      responseData.pagination = paginationMetadata;
-    }
-
-    const response: ApiResponse<TransactionRecordsResponseData> = {
-      success: true,
-      data: responseData,
-    };
-
-    return NextResponse.json(response);
-  } catch (error: unknown) {
-    console.error('Error fetching transaction records:', error);
-
-    // Handle Prisma-specific errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Add specific Prisma error handling if needed
-    }
-
-    const response: ApiResponse = {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch transaction records',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+  },
+  responses: {
+    200: {
+      description: 'Transaction records retrieved successfully',
+      content: TransactionRecordsGetResponseSchema,
+    },
+    400: { description: 'Missing or invalid query parameters' },
+    500: { description: 'Server error' },
+  },
+});
 
 /**
  * PATCH /api/transaction-records
  * Update a transaction record (metadata only)
  */
-export async function PATCH(request: NextRequest) {
-  try {
-    const body = await request.json();
-
-    if (!body.id) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Transaction record ID is required',
+export const { PATCH } = defineRoute({
+  operationId: 'updateTransactionRecord',
+  method: 'PATCH',
+  summary: 'Update a transaction record',
+  description: 'Update a transaction record metadata (notes, spending types)',
+  tags: ['Transaction Records'],
+  requestBody: TransactionRecordUpdateRequestSchema,
+  action: async ({ body }) => {
+    try {
+      const input: UpdateTransactionRecordInput = {
+        notes: body.notes,
+        spendingTypeIds: body.spendingTypeIds,
       };
-      return NextResponse.json(response, { status: 400 });
-    }
 
-    const input: UpdateTransactionRecordInput = {
-      notes: body.notes,
-      spendingTypeIds: body.spendingTypeIds,
-    };
+      await updateTransactionRecord(body.id, input);
 
-    await updateTransactionRecord(body.id, input);
+      // Fetch the updated transaction with all relations
+      const { getTransactionRecordById } = await import('@/lib/dal/transaction-records');
+      const updatedTransaction = await getTransactionRecordById(body.id);
 
-    // Fetch the updated transaction with all relations
-    const { getTransactionRecordById } = await import('@/lib/dal/transaction-records');
-    const updatedTransaction = await getTransactionRecordById(body.id);
-
-    if (!updatedTransaction) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Transaction record not found after update',
-      };
-      return NextResponse.json(response, { status: 404 });
-    }
-
-    // Serialize the transaction
-    const serialized = serializeTransactionRecord(updatedTransaction);
-
-    const response: ApiResponse = {
-      success: true,
-      data: serialized,
-    };
-
-    return NextResponse.json(response);
-  } catch (error: unknown) {
-    console.error('Error updating transaction record:', error);
-
-    // Handle Prisma-specific errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        const response: ApiResponse = {
-          success: false,
-          error: 'Transaction record not found',
-        };
-        return NextResponse.json(response, { status: 404 });
+      if (!updatedTransaction) {
+        return Response.json(
+          { success: false, error: 'Transaction record not found after update' },
+          { status: 404 }
+        );
       }
-    }
 
-    const response: ApiResponse = {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to update transaction record',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+      const serialized = serializeTransactionRecord(updatedTransaction);
+
+      return Response.json({ success: true, data: serialized });
+    } catch (error: unknown) {
+      console.error('Error updating transaction record:', error);
+
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          return Response.json(
+            { success: false, error: 'Transaction record not found' },
+            { status: 404 }
+          );
+        }
+      }
+
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : 'Failed to update transaction record' },
+        { status: 500 }
+      );
+    }
+  },
+  responses: {
+    200: {
+      description: 'Transaction record updated successfully',
+      content: TransactionRecordUpdateResponseSchema,
+    },
+    400: { description: 'Invalid request body' },
+    404: { description: 'Transaction record not found' },
+    500: { description: 'Server error' },
+  },
+});
 
 /**
  * DELETE /api/transaction-records
  * Delete a transaction record
  */
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+export const { DELETE } = defineRoute({
+  operationId: 'deleteTransactionRecord',
+  method: 'DELETE',
+  summary: 'Delete a transaction record',
+  description: 'Delete a transaction record by ID',
+  tags: ['Transaction Records'],
+  queryParams: z.object({
+    id: z.string().optional(),
+  }),
+  action: async ({ queryParams }) => {
+    try {
+      const id = queryParams?.id;
 
-    if (!id) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Transaction record ID is required',
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
-    await deleteTransactionRecord(id);
-
-    const response: ApiResponse = {
-      success: true,
-      message: 'Transaction record deleted successfully',
-    };
-
-    return NextResponse.json(response);
-  } catch (error: unknown) {
-    console.error('Error deleting transaction record:', error);
-
-    // Handle Prisma-specific errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        const response: ApiResponse = {
-          success: false,
-          error: 'Transaction record not found',
-        };
-        return NextResponse.json(response, { status: 404 });
+      if (!id) {
+        return Response.json(
+          { success: false, error: 'Transaction record ID is required' },
+          { status: 400 }
+        );
       }
-    }
 
-    const response: ApiResponse = {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete transaction record',
-    };
-    return NextResponse.json(response, { status: 500 });
-  }
-}
+      await deleteTransactionRecord(id);
+
+      return Response.json({
+        success: true,
+        message: 'Transaction record deleted successfully',
+      });
+    } catch (error: unknown) {
+      console.error('Error deleting transaction record:', error);
+
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          return Response.json(
+            { success: false, error: 'Transaction record not found' },
+            { status: 404 }
+          );
+        }
+      }
+
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : 'Failed to delete transaction record' },
+        { status: 500 }
+      );
+    }
+  },
+  responses: {
+    200: {
+      description: 'Transaction record deleted successfully',
+      content: TransactionRecordDeleteResponseSchema,
+    },
+    400: { description: 'Missing transaction record ID' },
+    404: { description: 'Transaction record not found' },
+    500: { description: 'Server error' },
+  },
+});

@@ -1,39 +1,74 @@
 import { z, type ZodType } from 'zod';
 
 /**
- * Recursively strip .default() wrappers from Zod schemas so the
- * openapi-json-generator's fixSchema doesn't choke on unsupported types.
- * This keeps the real schemas untouched - only the copies passed to the
- * generator are modified.
+ * Recursively strip .default() and .refine()/.transform() wrappers from Zod
+ * schemas so the openapi-json-generator's fixSchema doesn't choke on
+ * unsupported types.  This keeps the real schemas untouched – only the copies
+ * passed to the generator are modified.
  */
-function stripDefaults(schema: ZodType): ZodType {
+function stripUnsupported(schema: ZodType): ZodType {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const def = (schema as any)._zod?.def;
+  const s = schema as any;
+  const def = s._zod?.def;
   if (!def) return schema;
 
+  // .default() – strip it entirely, keep the inner schema
   if (def.type === 'default') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return stripDefaults((schema as any).unwrap());
+    return stripUnsupported(s.unwrap());
   }
 
-  if (def.type === 'object') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const shape = (schema as any).shape;
-    const newShape: Record<string, ZodType> = {};
-    for (const [key, value] of Object.entries(shape)) {
-      newShape[key] = stripDefaults(value as ZodType);
+  // .refine() / .superRefine() / .transform() – unwrap to inner schema
+  if (def.type === 'effects' || def.type === 'pipeline') {
+    const inner = def.innerType ?? def.in;
+    if (inner) {
+      return stripUnsupported(inner);
     }
-    return z.object(newShape);
+  }
+
+  // .optional() – recurse into the inner schema, re-wrap
+  if (def.type === 'optional') {
+    const inner = s.unwrap ? s.unwrap() : def.innerType;
+    if (inner) {
+      return stripUnsupported(inner).optional();
+    }
+  }
+
+  // .nullable() – recurse into the inner schema, re-wrap
+  if (def.type === 'nullable') {
+    const inner = s.unwrap ? s.unwrap() : def.innerType;
+    if (inner) {
+      return stripUnsupported(inner).nullable();
+    }
+  }
+
+  // Recurse into object shapes
+  if (def.type === 'object') {
+    const shape = s.shape;
+    if (shape) {
+      const newShape: Record<string, ZodType> = {};
+      for (const [key, value] of Object.entries(shape)) {
+        newShape[key] = stripUnsupported(value as ZodType);
+      }
+      return z.object(newShape);
+    }
+  }
+
+  // Recurse into arrays
+  if (def.type === 'array') {
+    const element = s.element ?? def.element;
+    if (element) {
+      return z.array(stripUnsupported(element));
+    }
   }
 
   return schema;
 }
 
-/** Strip .default() wrappers from all schemas in a record */
+/** Strip unsupported wrappers (.default(), .refine(), etc.) from all schemas */
 export function cleanSchemas<T extends Record<string, ZodType>>(schemas: T): T {
   const cleaned = {} as Record<string, ZodType>;
   for (const [key, value] of Object.entries(schemas)) {
-    cleaned[key] = stripDefaults(value);
+    cleaned[key] = stripUnsupported(value);
   }
   return cleaned as T;
 }

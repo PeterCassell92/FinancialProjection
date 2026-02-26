@@ -69,7 +69,17 @@ export const DailyBalancesQueryParamsSchema = z.object({
   bankAccountId: z.string(),
 });
 
+/**
+ * Daily Balance DELETE Response Schema
+ */
+export const DailyBalanceClearActualResponseSchema = z.object({
+  success: z.boolean(),
+  error: z.string().optional(),
+  message: z.string().optional(),
+});
+
 // Export types
+export type DailyBalanceClearActualResponse = z.infer<typeof DailyBalanceClearActualResponseSchema>;
 export type DailyBalanceData = z.infer<typeof DailyBalanceDataSchema>;
 export type DailyBalanceGetResponse = z.infer<typeof DailyBalanceGetResponseSchema>;
 export type DailyBalancesGetResponse = z.infer<typeof DailyBalancesGetResponseSchema>;
