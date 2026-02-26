@@ -71,3 +71,6 @@ next-env.d.ts
 
 # OS
 Thumbs.db
+
+#Keeping testnexus not in git history for now
+.testnexus 

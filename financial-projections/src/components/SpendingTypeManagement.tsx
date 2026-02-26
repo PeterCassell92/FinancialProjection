@@ -194,6 +194,7 @@ export default function SpendingTypeManagement({
               return (
                 <div
                   key={type.id}
+                  data-spending-type-name={type.name}
                   className={`p-3 bg-gray-50 rounded-md border-2 transition-colors ${
                     filterEnabled ? 'cursor-pointer hover:bg-gray-100' : 'cursor-not-allowed opacity-60'
                   } ${

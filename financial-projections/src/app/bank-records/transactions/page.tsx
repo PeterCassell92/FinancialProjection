@@ -188,7 +188,7 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div data-testid="transactions-page" className="min-h-screen bg-gray-50">
       <Header onOpenSettings={() => {}} onOpenInfo={() => {}} />
 
       <div className="max-w-[1600px] mx-auto px-4 py-8">
