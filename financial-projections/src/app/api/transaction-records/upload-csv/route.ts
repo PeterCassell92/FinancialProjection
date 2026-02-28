@@ -137,11 +137,35 @@ export const { POST } = defineRoute({
       } else {
         // Auto-detect from CSV
         const firstTx = parseResult.transactions[0];
+
+        if (!firstTx.sortCode || !firstTx.accountNumber) {
+          await updateUploadOperation(uploadOperationId, {
+            operationStatus: 'FAILED',
+            errorMessage: 'CSV format does not contain account identifiers. Please provide a bankAccountId.',
+          });
+
+          const response: CsvUploadResponse = {
+            success: false,
+            error: 'CSV format does not contain account identifiers (sort code / account number). Please select a bank account.',
+          };
+          return Response.json(response, { status: 400 });
+        }
+
+        // Detect bank provider from data format name
+        const formatName = uploadOperation.dataFormat.name.toLowerCase();
+        const providerMap: Record<string, BankProvider> = {
+          'halifax': BankProvider.HALIFAX,
+          'mettle': BankProvider.METTLE,
+        };
+        const detectedProvider = Object.entries(providerMap).find(
+          ([key]) => formatName.includes(key)
+        )?.[1] || BankProvider.OTHER;
+
         bankAccount = await getOrCreateBankAccount(
           firstTx.sortCode,
           firstTx.accountNumber,
           `Account ${firstTx.accountNumber}`,
-          BankProvider.HALIFAX, // TODO: Detect provider from data format
+          detectedProvider,
           `Sort Code: ${firstTx.sortCode}`
         );
       }

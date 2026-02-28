@@ -100,6 +100,7 @@ export const CsvValidityCheckResponseSchema = z.object({
   data: z.object({
     uploadOperationId: z.string().optional(),
     validityCheck: z.enum(['PASSED', 'FAILED']).optional(),
+    detectedFormat: z.string().optional(),
     accountNumber: z.string().optional(),
     sortCode: z.string().optional(),
     earliestDate: z.string().optional(),

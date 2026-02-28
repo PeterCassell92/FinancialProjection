@@ -5,7 +5,7 @@ import { defineStepper } from '@stepperize/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, AlertTriangle, Plus } from 'lucide-react';
 
 const { Scoped, useStepper } = defineStepper(
   { id: 'validity', title: 'Validity Check' },
@@ -30,6 +30,7 @@ function StepperContent({ onComplete }: CSVUploadStepperProps) {
   const [uploadOperationId, setUploadOperationId] = useState<string | null>(null);
   const [validityData, setValidityData] = useState<any>(null);
   const [overlapData, setOverlapData] = useState<any>(null);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -73,13 +74,15 @@ function StepperContent({ onComplete }: CSVUploadStepperProps) {
           <ConfirmStep
             uploadOperationId={uploadOperationId!}
             validityData={validityData}
-            onSuccess={(data) => {
+            onSuccess={(data, bankAccountId) => {
               setOverlapData(data);
+              setSelectedBankAccountId(bankAccountId || null);
               stepper.next();
             }}
             onBack={() => {
               setUploadOperationId(null);
               setValidityData(null);
+              setSelectedBankAccountId(null);
               stepper.reset();
             }}
           />
@@ -88,6 +91,7 @@ function StepperContent({ onComplete }: CSVUploadStepperProps) {
           <UploadStep
             uploadOperationId={uploadOperationId!}
             overlapData={overlapData}
+            bankAccountId={selectedBankAccountId}
             onSuccess={onComplete}
             onBack={() => {
               stepper.prev();
@@ -171,7 +175,7 @@ function ValidityCheckStep({ onSuccess }: ValidityCheckStepProps) {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('dataFormatId', 'halifax_csv_v1');
+      // No dataFormatId — let backend auto-detect
 
       const response = await fetch('/api/transaction-records/check-csv-validity', {
         method: 'POST',
@@ -216,7 +220,7 @@ function ValidityCheckStep({ onSuccess }: ValidityCheckStepProps) {
             data-testid="csv-file-input"
           />
           <p className="text-sm text-gray-500">
-            Currently supports Halifax CSV format. Max file size: 10MB
+            Supports Halifax and Mettle CSV formats. Format is auto-detected. Max file size: 10MB
           </p>
         </div>
 
@@ -242,31 +246,79 @@ function ValidityCheckStep({ onSuccess }: ValidityCheckStepProps) {
   );
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  sortCode: string;
+  accountNumber: string;
+  provider: string;
+}
+
 interface ConfirmStepProps {
   uploadOperationId: string;
   validityData: any;
-  onSuccess: (data: any) => void;
+  onSuccess: (data: any, bankAccountId?: string) => void;
   onBack: () => void;
 }
 
 function ConfirmStep({ uploadOperationId, validityData, onSuccess, onBack }: ConfirmStepProps) {
-  const [checking, setChecking] = useState(true);
+  const hasAccountInfo = validityData.accountNumber && validityData.sortCode;
+
+  const [checking, setChecking] = useState(hasAccountInfo);
   const [overlapData, setOverlapData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const hasCheckedRef = useRef(false);
 
-  // Check for date overlap on mount
+  // Account selection state (for formats without account identifiers)
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(!hasAccountInfo);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [showNewAccountForm, setShowNewAccountForm] = useState(false);
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newSortCode, setNewSortCode] = useState('');
+  const [newAccountNumber, setNewAccountNumber] = useState('');
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [accountReady, setAccountReady] = useState(hasAccountInfo);
+
+  // Fetch bank accounts for selection (when account info not in CSV)
   useEffect(() => {
-    // Prevent duplicate checks (especially in StrictMode)
+    if (hasAccountInfo) return;
+
+    const fetchAccounts = async () => {
+      try {
+        const response = await fetch('/api/bank-accounts');
+        const data = await response.json();
+        if (data.success && data.data) {
+          setBankAccounts(data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch bank accounts:', err);
+      } finally {
+        setLoadingAccounts(false);
+      }
+    };
+
+    fetchAccounts();
+  }, [hasAccountInfo]);
+
+  // Check for date overlap when account is ready
+  useEffect(() => {
+    if (!accountReady) return;
     if (hasCheckedRef.current) return;
     hasCheckedRef.current = true;
 
     const checkOverlap = async () => {
+      setChecking(true);
       try {
+        const body: any = { uploadOperationId };
+        if (selectedAccountId) {
+          body.bankAccountId = selectedAccountId;
+        }
+
         const response = await fetch('/api/transaction-records/check-date-overlap', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uploadOperationId }),
+          body: JSON.stringify(body),
         });
 
         const data = await response.json();
@@ -285,11 +337,218 @@ function ConfirmStep({ uploadOperationId, validityData, onSuccess, onBack }: Con
     };
 
     checkOverlap();
-  }, [uploadOperationId]); // Add dependency array to prevent re-runs
+  }, [accountReady, uploadOperationId, selectedAccountId]);
+
+  const handleSelectAccount = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    setShowNewAccountForm(false);
+    setAccountReady(true);
+  };
+
+  const handleCreateAccount = async () => {
+    if (!newAccountName.trim() || !newSortCode.trim() || !newAccountNumber.trim()) {
+      setError('Please fill in all account fields');
+      return;
+    }
+
+    setCreatingAccount(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/bank-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newAccountName.trim(),
+          sortCode: newSortCode.trim(),
+          accountNumber: newAccountNumber.trim(),
+          provider: 'METTLE',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        setSelectedAccountId(data.data.id);
+        setBankAccounts(prev => [data.data, ...prev]);
+        setShowNewAccountForm(false);
+        setAccountReady(true);
+      } else {
+        setError(data.error || 'Failed to create bank account');
+      }
+    } catch (err) {
+      setError('Failed to create bank account. Please try again.');
+      console.error('Account creation error:', err);
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
 
   const handleContinue = () => {
-    onSuccess(overlapData);
+    onSuccess(overlapData, selectedAccountId || undefined);
   };
+
+  // Show account selection UI when account info is missing
+  if (!hasAccountInfo && !accountReady) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Select Bank Account</h2>
+
+        {validityData.detectedFormat && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-blue-800">
+              Detected format: <span className="font-medium">{validityData.detectedFormat}</span>.
+              This format does not include account identifiers. Please select or create a bank account.
+            </p>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* CSV Summary */}
+        <div className="bg-gray-50 rounded-lg p-4 space-y-2 mb-4">
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-600">Date Range:</span>
+            <span className="text-sm font-medium">
+              {new Date(validityData.earliestDate).toLocaleDateString()} -{' '}
+              {new Date(validityData.latestDate).toLocaleDateString()}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-600">Transactions:</span>
+            <span className="text-sm font-medium">{validityData.transactionCount}</span>
+          </div>
+        </div>
+
+        {loadingAccounts ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+            <span className="ml-2 text-gray-600">Loading accounts...</span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Existing accounts */}
+            {bankAccounts.length > 0 && (
+              <div className="space-y-2">
+                <Label>Select an existing account</Label>
+                {bankAccounts.map((account) => (
+                  <button
+                    key={account.id}
+                    onClick={() => handleSelectAccount(account.id)}
+                    className="w-full text-left p-3 border rounded-lg hover:bg-gray-50 transition-colors flex justify-between items-center"
+                    data-testid={`select-account-${account.id}`}
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">{account.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {account.sortCode} / {account.accountNumber}
+                      </p>
+                    </div>
+                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                      {account.provider}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Divider */}
+            {bankAccounts.length > 0 && (
+              <div className="flex items-center gap-3 py-1">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-sm text-gray-400">or</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+            )}
+
+            {/* New account form */}
+            {!showNewAccountForm ? (
+              <Button
+                onClick={() => setShowNewAccountForm(true)}
+                variant="outline"
+                className="w-full"
+                data-testid="add-new-account-button"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add New Account
+              </Button>
+            ) : (
+              <div className="border rounded-lg p-4 space-y-3">
+                <h3 className="font-medium text-gray-900">New Bank Account</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="new-account-name">Account Name</Label>
+                  <Input
+                    id="new-account-name"
+                    value={newAccountName}
+                    onChange={(e) => setNewAccountName(e.target.value)}
+                    placeholder="e.g. Mettle Business Account"
+                    data-testid="new-account-name-input"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-sort-code">Sort Code</Label>
+                    <Input
+                      id="new-sort-code"
+                      value={newSortCode}
+                      onChange={(e) => setNewSortCode(e.target.value)}
+                      placeholder="e.g. 04-06-05"
+                      data-testid="new-sort-code-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-account-number">Account Number</Label>
+                    <Input
+                      id="new-account-number"
+                      value={newAccountNumber}
+                      onChange={(e) => setNewAccountNumber(e.target.value)}
+                      placeholder="e.g. 12345678"
+                      data-testid="new-account-number-input"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setShowNewAccountForm(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreateAccount}
+                    disabled={creatingAccount || !newAccountName.trim() || !newSortCode.trim() || !newAccountNumber.trim()}
+                    className="flex-1"
+                    data-testid="create-account-button"
+                  >
+                    {creatingAccount ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create & Select'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4">
+          <Button onClick={onBack} variant="outline" className="w-full">
+            Back to Start
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (checking) {
     return (
@@ -324,14 +583,32 @@ function ConfirmStep({ uploadOperationId, validityData, onSuccess, onBack }: Con
 
       <div className="space-y-4 mb-6">
         <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-          <div className="flex justify-between">
-            <span className="text-sm text-gray-600">Account Number:</span>
-            <span className="text-sm font-medium">{validityData.accountNumber}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-sm text-gray-600">Sort Code:</span>
-            <span className="text-sm font-medium">{validityData.sortCode}</span>
-          </div>
+          {validityData.detectedFormat && (
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Detected Format:</span>
+              <span className="text-sm font-medium">{validityData.detectedFormat}</span>
+            </div>
+          )}
+          {hasAccountInfo && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Account Number:</span>
+                <span className="text-sm font-medium">{validityData.accountNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Sort Code:</span>
+                <span className="text-sm font-medium">{validityData.sortCode}</span>
+              </div>
+            </>
+          )}
+          {!hasAccountInfo && selectedAccountId && (
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Bank Account:</span>
+              <span className="text-sm font-medium">
+                {bankAccounts.find(a => a.id === selectedAccountId)?.name || 'Selected'}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-sm text-gray-600">Date Range:</span>
             <span className="text-sm font-medium">
@@ -382,11 +659,12 @@ function ConfirmStep({ uploadOperationId, validityData, onSuccess, onBack }: Con
 interface UploadStepProps {
   uploadOperationId: string;
   overlapData: any;
+  bankAccountId: string | null;
   onSuccess: () => void;
   onBack: () => void;
 }
 
-function UploadStep({ uploadOperationId, overlapData, onSuccess, onBack }: UploadStepProps) {
+function UploadStep({ uploadOperationId, overlapData, bankAccountId, onSuccess, onBack }: UploadStepProps) {
   const [uploading, setUploading] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -400,13 +678,18 @@ function UploadStep({ uploadOperationId, overlapData, onSuccess, onBack }: Uploa
 
     const doUpload = async () => {
       try {
+        const body: any = {
+          uploadOperationId,
+          deleteOverlapping: overlapData?.hasOverlap || false,
+        };
+        if (bankAccountId) {
+          body.bankAccountId = bankAccountId;
+        }
+
         const response = await fetch('/api/transaction-records/upload-csv', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uploadOperationId,
-            deleteOverlapping: overlapData?.hasOverlap || false,
-          }),
+          body: JSON.stringify(body),
         });
 
         const data = await response.json();
@@ -425,7 +708,7 @@ function UploadStep({ uploadOperationId, overlapData, onSuccess, onBack }: Uploa
     };
 
     doUpload();
-  }, [uploadOperationId, overlapData]); // Add dependency array to prevent re-runs
+  }, [uploadOperationId, overlapData, bankAccountId]);
 
   if (uploading) {
     return (

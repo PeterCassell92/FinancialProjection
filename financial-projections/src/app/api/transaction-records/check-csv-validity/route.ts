@@ -15,7 +15,7 @@ import type { CsvValidityCheckResponse } from '@/lib/schemas';
  *
  * Body (FormData):
  * - file: File (CSV file)
- * - dataFormatId: string (e.g., "halifax_csv_v1")
+ * - dataFormatId: string (optional, e.g., "halifax_csv_v1"). If omitted, format is auto-detected.
  */
 export const { POST } = defineRoute({
   operationId: 'checkCsvValidity',
@@ -29,32 +29,53 @@ export const { POST } = defineRoute({
     try {
       const formData = await request.formData();
       const file = formData.get('file') as File;
-      const dataFormatId = formData.get('dataFormatId') as string;
+      const dataFormatId = formData.get('dataFormatId') as string | null;
 
-      if (!file || !dataFormatId) {
+      if (!file) {
         const response: CsvValidityCheckResponse = {
           success: false,
-          error: 'Missing required fields: file, dataFormatId',
+          error: 'Missing required field: file',
         };
         return Response.json(response, { status: 400 });
+      }
+
+      // Read file content early for auto-detection
+      const csvContent = await file.text();
+
+      // Determine processor: use provided formatId or auto-detect
+      let processor;
+      let resolvedFormatId: string;
+
+      if (dataFormatId) {
+        processor = processorRegistry.getProcessor(dataFormatId);
+        if (!processor) {
+          const response: CsvValidityCheckResponse = {
+            success: false,
+            error: `No processor available for format: ${dataFormatId}`,
+          };
+          return Response.json(response, { status: 400 });
+        }
+        resolvedFormatId = dataFormatId;
+      } else {
+        // Auto-detect format from CSV content
+        processor = processorRegistry.detectFormat(csvContent);
+        if (!processor) {
+          const response: CsvValidityCheckResponse = {
+            success: false,
+            error: 'Unable to detect CSV format. Supported formats: ' +
+              processorRegistry.getSupportedFormats().join(', '),
+          };
+          return Response.json(response, { status: 400 });
+        }
+        resolvedFormatId = processor.formatId;
       }
 
       // Validate data format exists in database
-      const dataFormat = await getDataFormatByName(dataFormatId);
+      const dataFormat = await getDataFormatByName(resolvedFormatId);
       if (!dataFormat) {
         const response: CsvValidityCheckResponse = {
           success: false,
-          error: `Unknown data format: ${dataFormatId}`,
-        };
-        return Response.json(response, { status: 400 });
-      }
-
-      // Check if processor exists for this format
-      const processor = processorRegistry.getProcessor(dataFormatId);
-      if (!processor) {
-        const response: CsvValidityCheckResponse = {
-          success: false,
-          error: `No processor available for format: ${dataFormatId}`,
+          error: `Unknown data format: ${resolvedFormatId}`,
         };
         return Response.json(response, { status: 400 });
       }
@@ -76,9 +97,6 @@ export const { POST } = defineRoute({
       await updateUploadOperation(uploadOperationId, {
         operationStatus: 'CHECKING',
       });
-
-      // Read file content for processing
-      const csvContent = await file.text();
 
       // Perform preflight check
       const preflightResult = processor.preflightCheck(csvContent);
@@ -116,6 +134,7 @@ export const { POST } = defineRoute({
         data: {
           uploadOperationId,
           validityCheck: 'PASSED',
+          detectedFormat: resolvedFormatId,
           accountNumber: preflightResult.accountNumber,
           sortCode: preflightResult.sortCode,
           earliestDate: preflightResult.earliestDate.toISOString(),

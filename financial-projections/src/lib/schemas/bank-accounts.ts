@@ -20,6 +20,7 @@ export const BankAccountDataSchema = z.object({
     'NATWEST',
     'RBS',
     'TSB',
+    'METTLE',
     'OTHER',
   ]),
   createdAt: z.string(),
@@ -65,6 +66,7 @@ export const BankAccountCreateRequestSchema = z.object({
     'NATWEST',
     'RBS',
     'TSB',
+    'METTLE',
     'OTHER',
   ]).optional().default('OTHER'),
 });
@@ -98,6 +100,7 @@ export const BankAccountUpdateRequestSchema = z.object({
     'NATWEST',
     'RBS',
     'TSB',
+    'METTLE',
     'OTHER',
   ]).optional(),
 });

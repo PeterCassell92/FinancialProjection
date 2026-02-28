@@ -87,6 +87,7 @@ enum BankProvider {
   NATWEST
   RBS
   TSB
+  METTLE
   OTHER
 }
 

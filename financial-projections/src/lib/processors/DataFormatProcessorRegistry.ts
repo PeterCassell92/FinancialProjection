@@ -1,5 +1,6 @@
 import { DataFormatProcessor } from './DataFormatProcessor';
 import { HalifaxCSVProcessor } from './HalifaxCSVProcessor';
+import { MettleCSVProcessor } from './MettleCSVProcessor';
 
 /**
  * Registry for all data format processors
@@ -18,9 +19,7 @@ class DataFormatProcessorRegistry {
    */
   private registerDefaults(): void {
     this.register(new HalifaxCSVProcessor());
-    // Add more processors here as they are implemented:
-    // this.register(new BarclaysCSVProcessor());
-    // this.register(new NatwestCSVProcessor());
+    this.register(new MettleCSVProcessor());
   }
 
   /**
@@ -63,6 +62,21 @@ class DataFormatProcessorRegistry {
    */
   getAllProcessors(): DataFormatProcessor[] {
     return Array.from(this.processors.values());
+  }
+
+  /**
+   * Auto-detect the CSV format by trying each processor's validate method
+   * @param csvContent The raw CSV content
+   * @returns The matching processor, or null if no format matches
+   */
+  detectFormat(csvContent: string): DataFormatProcessor | null {
+    for (const processor of this.processors.values()) {
+      const result = processor.validate(csvContent);
+      if (result.valid) {
+        return processor;
+      }
+    }
+    return null;
   }
 }
 

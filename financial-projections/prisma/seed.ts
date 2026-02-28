@@ -23,11 +23,10 @@ async function main() {
       name: 'halifax_csv_v1',
       description: 'Halifax Bank CSV export format - standard account statement export',
     },
-    // Add more formats here as they are supported in the future
-    // {
-    //   name: 'barclays_csv_v1',
-    //   description: 'Barclays Bank CSV export format',
-    // },
+    {
+      name: 'mettle_csv_v1',
+      description: 'Mettle Bank CSV export format - standard account statement export',
+    },
   ];
 
   for (const format of dataFormats) {

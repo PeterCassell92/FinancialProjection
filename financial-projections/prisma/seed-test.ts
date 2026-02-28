@@ -58,6 +58,16 @@ async function main() {
     },
   });
 
+  const mettleAccount = await prisma.bankAccount.create({
+    data: {
+      name: 'Mettle Business Account',
+      description: 'Mettle business current account',
+      sortCode: '04-06-05',
+      accountNumber: '44556677',
+      provider: BankProvider.METTLE,
+    },
+  });
+
   // Create Settings
   console.log('⚙️  Creating settings...');
   await prisma.settings.create({
@@ -419,12 +429,19 @@ async function main() {
     },
   });
 
-  // Create Data Format
+  // Create Data Formats
   console.log('📋 Creating data formats...');
   const halifaxFormat = await prisma.dataFormat.create({
     data: {
-      name: 'Halifax CSV Export',
-      description: 'Standard Halifax account export format',
+      name: 'halifax_csv_v1',
+      description: 'Halifax Bank CSV export format - standard account statement export',
+    },
+  });
+
+  const mettleFormat = await prisma.dataFormat.create({
+    data: {
+      name: 'mettle_csv_v1',
+      description: 'Mettle Bank CSV export format - standard account statement export',
     },
   });
 
@@ -523,7 +540,7 @@ async function main() {
   console.log('✅ Test data seeding complete!');
   console.log('');
   console.log('📊 Summary:');
-  console.log(`   - ${2} bank accounts created`);
+  console.log(`   - ${3} bank accounts created`);
   console.log(`   - ${3} decision paths created`);
   console.log(`   - ${2} scenario sets created`);
   console.log(`   - ${11} recurring event rules created`);

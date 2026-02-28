@@ -63,6 +63,22 @@ export class ApiClient {
       data: await response.json() as ApiResponse<T>,
     };
   }
+
+  /**
+   * POST with FormData (for file uploads)
+   * Does NOT set Content-Type header — browser/fetch sets multipart boundary automatically
+   */
+  async postFormData<T = any>(path: string, formData: FormData): Promise<{ status: number; data: ApiResponse<T> }> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    return {
+      status: response.status,
+      data: await response.json() as ApiResponse<T>,
+    };
+  }
 }
 
 export const apiClient = new ApiClient();
