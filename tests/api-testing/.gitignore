@@ -1,0 +1,8 @@
+# Test reports
+reports/
+
+# Coverage
+coverage/
+
+# Node
+node_modules/

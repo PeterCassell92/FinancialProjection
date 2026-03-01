@@ -1,0 +1,6 @@
+Date,Amount in GBP,Balance,Reference,Description,Transaction Type,Invoices,Receipts,Note,Category
+10/06/2024,35.00,79.79,TOPUP007 : J Smith,J Smith,Bank transfer,,,,
+27/04/2024,38.00,,INVOICE42 : A Johnson,A Johnson,Bank transfer,,,,
+11/04/2024,-33.79,,DD9982/010/111 : Acme Insurance Ltd,Acme Insurance Ltd,Direct debit,,,,
+11/03/2024,-33.79,,DD9982/010/110 : Acme Insurance Ltd,Acme Insurance Ltd,Direct debit,,,,
+06/03/2024,40.00,,TOPUP006 : J Smith,J Smith,Bank transfer,,,,

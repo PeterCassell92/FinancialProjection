@@ -2,7 +2,9 @@
  * Simple API client for making HTTP requests to the Next.js API
  */
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
+import testConfig from '../../config.json';
+
+const API_BASE_URL = process.env.API_BASE_URL || testConfig.apiBaseUrl;
 
 export interface ApiResponse<T = any> {
   success: boolean;

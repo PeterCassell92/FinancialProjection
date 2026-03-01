@@ -1,0 +1,4 @@
+Transaction Date,Transaction Type,Sort Code,Account Number,Transaction Description,Debit Amount,Credit Amount,Balance
+not-a-date,DEB,'11-22-33,12345678,TESCO STORES,50.00,,950.00
+16/01/2026,DEB,'11-22-33,12345678,VALID ROW,25.00,,925.00
+16/01/2026,DEB,'11-22-33,12345678,BAD BALANCE,10.00,,not-a-number

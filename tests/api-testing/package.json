@@ -13,7 +13,7 @@
     "db:seed": "./scripts/seed-test-data.sh",
     "db:reset": "yarn db:teardown && yarn db:setup && yarn db:migrate",
     "env:setup": "./scripts/setup-test-env.sh",
-    "env:teardown": "docker-compose -f docker-compose.test.yml down -v",
+    "env:teardown": "./scripts/teardown-test-db.sh",
     "test:report": "jest --forceExit",
     "test:containerized": "./scripts/test-containerized.sh",
     "test:ci": "./scripts/test-containerized.sh"

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="5" failures="0" errors="0" time="1.618">
+  <testsuite name="CSV Format Auto-Detection" errors="0" failures="0" skipped="0" timestamp="2026-02-28T23:05:36" time="1.372" tests="5">
+    <testcase classname="CSV Format Auto-Detection › POST /api/transaction-records/check-csv-validity (auto-detect)" name="should auto-detect Halifax CSV format from headers" time="0.089">
+    </testcase>
+    <testcase classname="CSV Format Auto-Detection › POST /api/transaction-records/check-csv-validity (auto-detect)" name="should auto-detect Mettle CSV format from headers" time="0.044">
+    </testcase>
+    <testcase classname="CSV Format Auto-Detection › POST /api/transaction-records/check-csv-validity (auto-detect)" name="should return error for unknown CSV format" time="0.008">
+    </testcase>
+    <testcase classname="CSV Format Auto-Detection › POST /api/transaction-records/check-csv-validity (auto-detect)" name="should still work when dataFormatId is explicitly provided" time="0.042">
+    </testcase>
+    <testcase classname="CSV Format Auto-Detection › POST /api/transaction-records/check-csv-validity (auto-detect)" name="should return error when file is missing" time="0.008">
+    </testcase>
+  </testsuite>
+</testsuites>

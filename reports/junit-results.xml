@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="9" failures="0" errors="0" time="5.715">
+  <testsuite name="CSV Upload Database Integrity" errors="0" failures="0" skipped="0" timestamp="2026-02-28T23:36:19" time="5.446" tests="9">
+    <testcase classname="CSV Upload Database Integrity › Halifax CSV - Database Records" name="should have created transaction records retrievable via API" time="0.093">
+    </testcase>
+    <testcase classname="CSV Upload Database Integrity › Halifax CSV - Database Records" name="should have correct upload operation status (COMPLETED)" time="1.265">
+    </testcase>
+    <testcase classname="CSV Upload Database Integrity › Mettle CSV - Database Records with Calculated Balances" name="should have imported all 5 Mettle transactions" time="0.056">
+    </testcase>
+    <testcase classname="CSV Upload Database Integrity › Mettle CSV - Database Records with Calculated Balances" name="should report correct counts in upload response" time="0.421">
+    </testcase>
+    <testcase classname="CSV Upload Database Integrity › Upload Operation Status Transitions" name="should transition through CHECKING → VALIDITY_CHECK_PASSED" time="0.093">
+    </testcase>
+    <testcase classname="CSV Upload Database Integrity › Upload Operation Status Transitions" name="should transition to VALIDITY_CHECK_FAILED for invalid CSV" time="0.082">
+    </testcase>
+    <testcase classname="CSV Upload Database Integrity › Upload Operation Status Transitions" name="should not allow re-upload of already completed operation" time="0.309">
+    </testcase>
+    <testcase classname="CSV Upload Database Integrity › Malformed Data Handling" name="should handle Halifax CSV with mixed valid/invalid rows" time="0.093">
+    </testcase>
+    <testcase classname="CSV Upload Database Integrity › Malformed Data Handling" name="should handle Mettle CSV with malformed data rows" time="0.107">
+    </testcase>
+  </testsuite>
+</testsuites>

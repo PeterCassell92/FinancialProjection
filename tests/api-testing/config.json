@@ -1,0 +1,11 @@
+{
+  "apiBaseUrl": "http://localhost:3001",
+  "appPort": 3001,
+  "database": {
+    "host": "localhost",
+    "port": 5435,
+    "name": "financial_projections_test",
+    "user": "test_user",
+    "password": "test_password"
+  }
+}

@@ -6,16 +6,21 @@ set -e
 
 echo "🌱 Seeding test database with initial data..."
 
-# Export test database URL
-export DATABASE_URL="postgresql://test_user:test_password@localhost:5435/financial_projections_test"
+# Read config
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG_FILE="$SCRIPT_DIR/../config.json"
+DB_HOST=$(node -e "console.log(require('$CONFIG_FILE').database.host)")
+DB_PORT=$(node -e "console.log(require('$CONFIG_FILE').database.port)")
+DB_NAME=$(node -e "console.log(require('$CONFIG_FILE').database.name)")
+DB_USER=$(node -e "console.log(require('$CONFIG_FILE').database.user)")
+DB_PASS=$(node -e "console.log(require('$CONFIG_FILE').database.password)")
+
+export DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
 
 # Navigate to the main app directory
-cd ../../financial-projections
+cd "$SCRIPT_DIR/../../../financial-projections"
 
-# You can add seed logic here, for example:
-# npx tsx prisma/seed.ts
+# Run the test seed script
+npx tsx prisma/seed-test.ts
 
 echo "✅ Test data seeded!"
-echo ""
-echo "Note: Add your seed script to financial-projections/prisma/seed.ts"
-echo "      or create custom seeding logic here."

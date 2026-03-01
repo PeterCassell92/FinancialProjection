@@ -1,0 +1,8 @@
+Date,Amount in GBP,Balance,Reference,Description,Transaction Type,Invoices,Receipts,Note,Category
+10/06/2024,500.00,1500.00,SALARY : Globex Corp,Globex Corp,Bank transfer,,,,
+05/06/2024,-33.79,,DD/INS : Acme Insurance,Acme Insurance,Direct debit,,,,
+01/06/2024,-15.99,,SO/STREAM : StreamFlix,StreamFlix,Standing order,,,,
+28/05/2024,-45.00,,CARD : The Oak Tavern,The Oak Tavern,Card payment,,,,
+25/05/2024,100.00,,FP/FRIEND : R Williams,R Williams,Faster payment,,,,
+20/05/2024,-5.00,,FEE : Monthly fee,Monthly Account Fee,Fee,,,,
+15/05/2024,0.50,,INT : Monthly,Monthly Interest,Interest,,,,

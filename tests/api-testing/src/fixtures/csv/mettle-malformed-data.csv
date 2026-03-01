@@ -1,0 +1,4 @@
+Date,Amount in GBP,Balance,Reference,Description,Transaction Type,Invoices,Receipts,Note,Category
+not-a-date,35.00,79.79,REF1,Description1,Bank transfer,,,,
+10/06/2024,not-a-number,,REF2,Description2,Bank transfer,,,,
+10/06/2024,35.00,79.79,REF3,Valid Row,Bank transfer,,,,

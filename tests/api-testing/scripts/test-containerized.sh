@@ -16,7 +16,7 @@ cd "$TEST_DIR"
 cleanup() {
     echo ""
     echo "🧹 Cleaning up containers..."
-    docker-compose -f docker-compose.test.yml down -v
+    docker compose -f docker-compose.test.yml down -v
     echo "✅ Cleanup complete!"
 }
 
@@ -31,7 +31,7 @@ echo "🧪 Running tests..."
 echo ""
 
 # Run tests
-yarn test
+yarnpkg test
 
 echo ""
 echo "🎉 All tests completed successfully!"

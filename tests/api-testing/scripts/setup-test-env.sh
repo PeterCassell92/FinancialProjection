@@ -4,8 +4,11 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+COMPOSE_FILE="$SCRIPT_DIR/../docker-compose.test.yml"
+
 echo "🐳 Starting complete test environment (database + application)..."
-docker-compose -f docker-compose.test.yml up -d --build
+docker compose -f "$COMPOSE_FILE" up -d --build
 
 echo "⏳ Waiting for database to be ready..."
 until docker exec financial-projections-test-db pg_isready -U test_user -d financial_projections_test > /dev/null 2>&1; do
@@ -15,7 +18,7 @@ done
 echo "✅ Test database is ready!"
 
 echo "⏳ Running database migrations..."
-docker exec financial-projections-test-app npx prisma db push --skip-generate
+docker exec financial-projections-test-app npx prisma db push
 
 echo "⏳ Waiting for Next.js application to be ready..."
 timeout=60
@@ -38,4 +41,4 @@ echo "  Application URL: http://localhost:3001"
 echo "  Database Port: 5435"
 echo ""
 echo "Run tests with:"
-echo "  yarn test"
+echo "  yarnpkg test"
